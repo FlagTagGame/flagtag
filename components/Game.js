@@ -95,9 +95,14 @@ class Game {
 		// Add all the elements to the world.
 		World.add(this.engine.world, this.map.map(a => a.body));
 
+		// Start Game Loop
 		this.startGameInterval();
 	}
 
+	/**
+	 * Starts Main Game Loop and Socket Emission group
+	 * @return {undefined} Doesn't return anything
+	 */
 	startGameInterval(){
 		// Main Game Loop
 		// Handles the game logic
@@ -163,8 +168,14 @@ class Game {
 			this.events = [];
 		}, 1000 / SETTINGS.socketTickSpeed);
 
-		// Collision Handling
+		// Is called right before any engine update.
+		Events.on(this.engine, "beforeUpdate", e => {
+			this.map.forEach(element => {
+				element.onTick();
+			});
+		});
 
+		// Collision Handling
 		// Called once when a collision starts
 		Events.on(this.engine, "collisionStart", e => {
 			e.pairs.forEach((pair, idx) => {

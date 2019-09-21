@@ -8,41 +8,82 @@ let Engine = Matter.Engine,
 	Body = Matter.Body,
 	Bodies = Matter.Bodies;
 
+/**
+ * This is the core GameElement that all other elements extend from.
+ */
 class GameElement {
 	constructor(body){
+		// Element ID
 		this.id = Utils.makeID();
+		// Matter.js Physics Body
 		this.body = body;
 
+		// Elements that are static don't send any updates to players (walls, spikes, etc)
 		this.isStatic = false;
 
+		// Element ID attached to body so that the element it belongs to can be found.
 		this.body.elementID = this.id;
+		// Element Type is atttached to the body to figure out what kind of body it is.
 		this.body.elementType = "GameElement";
 	}
 
+	/**
+	 * A callback thats called when a button linked to this element is touched
+	 * @param  {Player} player The player that touched the button
+	 * @return {undefined}     Doesn't return anything.
+	 */
 	activate(player){
 
 	}
 
+	/**
+	 * A callback thats called when a button linked to this element is untouched
+	 * @param  {[type]} player The player that untouched the button
+	 * @return {undefined}     Doesn't return anything.
+	 */
 	deactivate(player){
 		
 	}
 
+	/**
+	 * A callback thats called before any engine update
+	 * @return {undefined} Doesn't return anything.
+	 */
 	onTick(){
 
 	}
 
+	/**
+	 * A callback thats called once when the player touches this element
+	 * @param  {[type]} player The player in question
+	 * @return {undefined}     Doesn't return anything.
+	 */
 	onStartPlayerTouch(player){
 		// console.log("epic");
 	}
 
+	/**
+	 * A callback thats called while a player touches this element
+	 * @param  {[type]} player The player in question
+	 * @return {undefined}     Doesn't return anything.
+	 */
 	onActivePlayerTouch(player){
 		// console.log("epic");
 	}
 
+	/**
+	 * A callback thats called when a player stops touching this element
+	 * @param  {[type]} player The player in question
+	 * @return {undefined}     Doesn't return anything.
+	 */
 	onEndPlayerTouch(player){
 
 	}
 
+	/**
+	 * Creates an object thats sendable through socket.io
+	 * @return {Object} Sendable Object
+	 */
 	sendable(){
 		return {
 			id: this.body.elementID,

@@ -214,16 +214,21 @@ function update(){
 		let playerData = gameData.players[playerID];
 
 		if(playerSprites[playerID]) {
+			// Set Ball Position
 			playerSprites[playerID].x = playerSprites[playerID].spriteBody.position.x;
 			playerSprites[playerID].y = playerSprites[playerID].spriteBody.position.y;
 
+			// Hide the player if they're dead
 			playerSprites[playerID].setVisible(!playerData.dead);
 
+			// Set Flag Position
 			playerSprites[playerID].flagSprite.x = playerSprites[playerID].x + (SETTINGS.tileSize / 2.5);
 			playerSprites[playerID].flagSprite.y = playerSprites[playerID].y - (SETTINGS.tileSize / 2.5);
 
+			// Set Ball Rotation
 			playerSprites[playerID].setRotation(playerSprites[playerID].spriteBody.angle);
 
+			// Show the flag is the player has it
 			if(playerData.hasFlag) {
 				playerSprites[playerID].flagSprite.setFrame(playerData.team === SETTINGS.TEAM.RED ? CLIENT_SETTINGS.FRAMES.BLUEFLAG : CLIENT_SETTINGS.FRAMES.REDFLAG);
 				playerSprites[playerID].flagSprite.setVisible(true);
@@ -231,6 +236,7 @@ function update(){
 				playerSprites[playerID].flagSprite.setVisible(false);
 			}
 		} else {
+			// Create player sprite if it doesn't exist
 			playerSprites[playerID] = createPlayerSprite(playerData);
 		}
 	});

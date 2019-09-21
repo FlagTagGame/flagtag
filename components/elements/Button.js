@@ -13,17 +13,21 @@ class Button extends GameElement {
 	constructor({x, y, game}){
 		super(Bodies.circle(x, y, SETTINGS.ELEMENT_SIZES.BUTTON, { isSensor: true, isStatic: true }));
 		this.body.elementType = "Button";
+		// Convert World Space position into Tile Space position
 		let tileVector = Utils.XYToTile(this.body.position);
 
 		this.isOn = true;
 
 		this.game = game;
 
+		// Grab the link data from the map JSON
 		this.linkData = this.game.mapData.links[tileVector.x + "," + tileVector.y];
 
 		// Calling asynchronously so the map is built before this is called
 		setTimeout(() => {
+			// Check if any link data was provided by the map JSON file.
 			if(this.linkData){
+				// Compile an array of elements that are linked to this button.
 				this.linkedElements = this.linkData.tiles.map(tileString => {
 					let tileArr = tileString.split(",");
 					return Utils.getElementByTile(this.game.map, {x: Number(tileArr[0]), y: Number(tileArr[1])});
@@ -35,12 +39,14 @@ class Button extends GameElement {
 	}
 
 	onStartPlayerTouch(player){
+		// Activate all links when touched
 		this.linkedElements.forEach(element => {
 			element.activate();
 		});
 	}
 
 	onEndPlayerTouch(player){
+		// Deactivate all links when touched
 		this.linkedElements.forEach(element => {
 			element.deactivate();
 		});
