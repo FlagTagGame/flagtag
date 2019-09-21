@@ -14,6 +14,7 @@ const Wall = require('./elements/Wall');
 const Flag = require('./elements/Flag');
 const Spike = require('./elements/Spike');
 const Boost = require('./elements/Boost');
+const Bomb = require('./elements/Bomb');
 
 class Game {
 	constructor({mapData, io}){
@@ -21,6 +22,8 @@ class Game {
 		this.socketInterval = null;
 
 		this.players = {};
+
+		this.events = [];
 
 		this.engine = Engine.create();
 		this.engine.world.gravity.scale = 0;
@@ -75,21 +78,31 @@ class Game {
 						team: SETTINGS.TEAM.NEUTRAL,
 						game: this
 					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BOMB){
+					this.map.push(new Bomb({
+						x: (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
+						y: (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
+						game: this
+					}));
 				}
 			}
 		}
 
+		// Add all the elements to the world.
 		World.add(this.engine.world, this.map.map(a => a.body));
 
 		this.startGameInterval();
 	}
 
 	startGameInterval(){
+		// Main Game Loop
+		// Handles the game logic
 		this.gameInterval = setInterval(() => {
 			let playersArr = Object.values(this.players);
 
 			playersArr.forEach(player => {
 				if(!player.dead){
+					// Move the player depending on the keys pressed.
 					let moveObj = {x: 0, y: 0};
 					if(player.input.left) {
 						moveObj.x -= SETTINGS.BALL.ACCELERATION;
@@ -103,11 +116,13 @@ class Game {
 						moveObj.y += SETTINGS.BALL.ACCELERATION;
 					}
 
+					// Clamping the velocity (top speed)
 					Body.setVelocity(player.body, {
 						x: Math.clamp(player.body.velocity.x, -SETTINGS.BALL.TOP_VELOCITY, SETTINGS.BALL.TOP_VELOCITY),
 						y: Math.clamp(player.body.velocity.y, -SETTINGS.BALL.TOP_VELOCITY, SETTINGS.BALL.TOP_VELOCITY)
 					});
 
+					// Move the player
 					Body.applyForce(player.body, player.body.position, {
 						x: moveObj.x + (player.body.velocity.x * 0.000005),
 						y: moveObj.y + (player.body.velocity.y * 0.000005)
@@ -120,9 +135,12 @@ class Game {
 			Engine.update(this.engine, 1000 / SETTINGS.tickSpeed);
 		}, 1000 / SETTINGS.tickSpeed);
 
+		// Main Socket Loop
+		// Updates the players.
 		this.socketInterval = setInterval(() => {
 			let playersObjectKeys = Object.keys(this.players);
 
+			// Convert all the players into something sendable.
 			let playersObject = playersObjectKeys.reduce((acc, val) => {
 				acc[val] = this.players[val].sendable();
 
@@ -132,14 +150,21 @@ class Game {
 			playersObjectKeys.forEach(key => {
 				this.players[key].socket.emit("world data", {
 					players: playersObject,
-					elements: this.map.filter(a => !a.isStatic).map(a => a.sendable())
+					// Only send the non-static elements (not walls or spikes)
+					elements: this.map.filter(a => !a.isStatic).map(a => a.sendable()),
+					events: this.events
 				});
 				// console.log(playersObject);
 			});
+			this.events = [];
 		}, 1000 / SETTINGS.socketTickSpeed);
 
+		// Collision Handling
+
+		// Called once when a collision starts
 		Events.on(this.engine, "collisionStart", e => {
 			e.pairs.forEach((pair, idx) => {
+				// Player vs Player Start Collision handling
 				if(detectPairObject(pair, "Player", "Player")){
 					let player1 = this.players[pair.bodyA.elementID];
 					let player2 = this.players[pair.bodyB.elementID];
@@ -159,6 +184,7 @@ class Game {
 					}
 				}
 
+				// Check if either collided bodies are players.
 				if(pair.bodyA.elementType === "Player" || pair.bodyB.elementType === "Player") {
 					let playerBody = pair.bodyA.elementType === "Player" ? pair.bodyA : pair.bodyB;
 					let elementBody = pair.bodyA.elementType === "Player" ? pair.bodyB : pair.bodyA;
@@ -166,14 +192,17 @@ class Game {
 					let playerObj = this.players[playerBody.elementID];
 					let elementObj = this.map.find(a => a.id === elementBody.elementID);
 
+					// Call the element's onStartPlayerTouch
 					if(elementObj && playerObj && !playerObj.dead) elementObj.onStartPlayerTouch(playerObj);
 				}
 			});
 		});
 
+		// Called when a collision is active
 		Events.on(this.engine, "collisionActive", e => {
 			e.pairs.forEach((pair, idx) => {
-				// console.log(pair.bodyA.elementType, pair.bodyB.elementType)
+				// Player vs Player Activve Collision handling
+
 				if(detectPairObject(pair, "Player", "Player")){
 					let player1 = this.players[pair.bodyA.elementID];
 					let player2 = this.players[pair.bodyB.elementID];
@@ -193,6 +222,7 @@ class Game {
 					}
 				}
 
+				// Check if either collided bodies are players.
 				if(pair.bodyA.elementType === "Player" || pair.bodyB.elementType === "Player") {
 					let playerBody = pair.bodyA.elementType === "Player" ? pair.bodyA : pair.bodyB;
 					let elementBody = pair.bodyA.elementType === "Player" ? pair.bodyB : pair.bodyA;
@@ -200,13 +230,19 @@ class Game {
 					let playerObj = this.players[playerBody.elementID];
 					let elementObj = this.map.find(a => a.id === elementBody.elementID);
 
+					// Call the element's onActivePlayerTouch
 					if(elementObj && playerObj && !playerObj.dead) elementObj.onActivePlayerTouch(playerObj);
 				}
 			});
 		});
 	}
 
+	/**
+	 * @param  {Socket} socket - Player's socket object
+	 * @return {Object} Returns data that player needs in the callback. ({player, map, SETTINGS})
+	 */
 	joinGame(socket){
+		// Create the players body
 		let body = Bodies.circle(
 			(this.mapData.tiles[0].length * SETTINGS.tileSize) / 2,
 			(this.mapData.tiles.length * SETTINGS.tileSize) / 2,
@@ -218,8 +254,10 @@ class Game {
 				restitution: SETTINGS.BALL.BOUNCINESS
 			}
 		);
+		// Add that body to the world
 		World.add(this.engine.world, body);
 
+		// Create a Player instance
 		let player = new Player({
 			name: "Odd Ball",
 			team: Object.keys(this.players).length % 2 === 0 ? SETTINGS.TEAM.RED : SETTINGS.TEAM.BLUE,
@@ -230,24 +268,45 @@ class Game {
 		player.body.elementID = player.id;
 		player.body.elementType = "Player";
 
+		// Add the player to the game.
 		this.players[player.id] = player;
 
+		// Respawn the player
 		this.respawnPlayer(player);
 
+		// Send back data that the client needs.
 		return {player, map: {
 			elements: this.map.map(a => a.sendable()),
 			mapData: this.mapData
 		}, SETTINGS};
 	}
 
+	removePlayer(player){
+		this.respawnPlayer(player);
+		World.remove(this.engine.world, player.body);
+
+		this.events.push({type: SETTINGS.EVENTS.PLAYER_LEFT, data: player.id});
+
+		delete this.players[player.id];
+	}
+
+	/**
+	 * Kills the player, waits until respawn time is up, then teleports the player to a random spawn point.
+	 * @param  {Player} player Player to respawn
+	 * @return {Boolean} Returns true or false depending on success.
+	 */
 	respawnPlayer(player){
 		if(!player.dead && !player.invincible){
 			player.die();
+			// Reset the players velocity
 			Body.setVelocity(player.body, {x: 0, y: 0});
 
 			this.returnFlag(player);
 
+			// After the respawn time is up, find a random spawn point and teleport the player there.
 			setTimeout(() => {
+				if(!player) return;
+
 				let randomSpawn;
 
 				if(player.team === SETTINGS.TEAM.RED){
@@ -258,23 +317,49 @@ class Game {
 					Body.setPosition(player.body, randomSpawn);
 				}
 
-				console.log(randomSpawn);
-				if(player) player.live();
+				// console.log(randomSpawn);
+				player.live();
 			}, SETTINGS.GAME.RESPAWN_TIME);
+
+			return true;
 		}
+
+		return false;
 	}
 
-	// Returns flag that the player has back to base.
+	/**
+	 * Bring the flag that the player has back to base.
+	 * @param  {Player} player The player that has the flag.
+	 * @return {Boolean} Returns true if successful, false if unsuccessful
+	 */
 	returnFlag(player){
-		let flagIndex = this.map.findIndex(a => a.body.elementID === player.hasFlag);
+		// Check if the player has a flag
+		if(player.hasFlag){
+			// Find the flag the player has
+			let flagIndex = this.map.findIndex(a => a.body.elementID === player.hasFlag);
 
-		if(flagIndex > -1 && this.map[flagIndex].body.elementType === "Flag") {
-			this.map[flagIndex].taken = false;
-			player.hasFlag = false;
+			// Check if the flag was found and that the found element is a flag
+			if(flagIndex > -1 && this.map[flagIndex].body.elementType === "Flag") {
+				// Give the flag back to the flag (lul)
+				this.map[flagIndex].taken = false;
+				// Take the flag away from the player
+				player.hasFlag = false;
+
+				return true;
+			}
 		}
+
+		return false;
 	}
 }
 
+/**
+ * Given a body pair, this function detects both element types exist inside the pair.
+ * @param  {Object} pair         Matter.js Body Pair to check
+ * @param  {String} elementType1 An Element Type
+ * @param  {String} elementType2 Another Element Type
+ * @return {Boolean}
+ */
 function detectPairObject(pair, elementType1, elementType2){
 	let pairArr = [pair.bodyA.elementType, pair.bodyB.elementType];
 	pairArr.splice(pairArr.indexOf(elementType1), 1);
@@ -283,14 +368,29 @@ function detectPairObject(pair, elementType1, elementType2){
 	return pairArr.length === 0;
 }
 
+/**
+ * Given a body pair, this function returns a body that matches the element type. 
+ * @param  {Object} pair        Matter.js Body Pair
+ * @param  {String} elementType The element type to find
+ * @return {Body|Boolean} Returns false if it can't find a body.
+ */
 function getPairObject(pair, elementType){
 	if(pair.bodyA.elementType === elementType){
 		return pair.bodyA;
 	} else if(pair.bodyB.elementType === elementType){
 		return pair.bodyB;
+	} else {
+		return false;
 	}
 }
 
+/**
+ * Clamps a number between a maximum and minimum
+ * @param  {Number} num The source number
+ * @param  {Number} min The minimum value the number can't go below
+ * @param  {Number} max The maximum value the number can't go higher than
+ * @return {Number}
+ */
 Math.clamp = (num, min, max) => Math.max(Math.min(num, max), min);
 
 module.exports = Game;

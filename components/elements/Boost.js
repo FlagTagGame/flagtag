@@ -10,7 +10,7 @@ let Engine = Matter.Engine,
 
 class Boost extends GameElement {
 	constructor({x, y, team, game}){
-		super(Bodies.circle(x, y, SETTINGS.ELEMENT_SIZES.SPIKE, { isSensor: true, isStatic: true }));
+		super(Bodies.circle(x, y, SETTINGS.ELEMENT_SIZES.BOOST, { isSensor: true, isStatic: true }));
 		this.body.elementType = "Boost";
 
 		this.team = team;

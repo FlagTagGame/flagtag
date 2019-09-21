@@ -9,21 +9,30 @@ let config = {
 	}
 };
 
+// Matter Aliases
 let Engine = Matter.Engine,
 	Body = Matter.Body,
 	World = Matter.World,
 	Bodies = Matter.Bodies;
 
+// Connect to the socket.io "/game" namespace
 let socket = io("/game");
+// Initializing the Client's Player ID, gets set when the player joins the game
 let clientPlayerID;
+// Initialize Phaser Game Object
 let game = new Phaser.Game(config);
+// For storing Phaser Scene
 let scene;
 
+// Storing Controls
 let controls;
 
+// Stores game data acquired from server
 let gameData = {};
+// Player's Sprites
 let playerSprites = {};
 
+// Shared Server and Client Settings, is set when player joins game.
 let SETTINGS = {};
 
 let CLIENT_SETTINGS = {
@@ -34,7 +43,9 @@ let CLIENT_SETTINGS = {
 		BLUEFLAG: 31,
 		REDBALL: 14,
 		BLUEBALL: 15,
-		SPIKE: 12
+		SPIKE: 12,
+		BOMB_ON: 28,
+		BOMB_OFF: 44
 	}
 };
 
@@ -46,20 +57,26 @@ let mapSprites = {
 	boosts: {}
 };
 
+// Initialize Matter.js Engine
 let engine = Engine.create();
+// Disable Gravity
 engine.world.gravity.scale = 0;
 
 function preload(){
+	// Set scene
 	scene = this;
 
+	// Load sprite images
 	scene.load.spritesheet("tiles", "/assets/tiles.png", {frameWidth: 40, frameHeight: 40});
 	scene.load.spritesheet("boost", "/assets/boost.png", {frameWidth: 40, frameHeight: 40});
 	scene.load.image("wall", "/assets/wall.png");
 }
 
 function create(){
+	// Set scene
 	scene = this;
 
+	// Set controls
 	controls = {
 		up: scene.input.keyboard.addKey(87),
 		down: scene.input.keyboard.addKey(83),
@@ -71,10 +88,14 @@ function create(){
 		right2: scene.input.keyboard.addKey(39)
 	};
 
+	// Removing Key Capture on all the keys
+	// Allows these keys to be used outside of Phaser Canvas
+	// Without it, you wouldn't be able to type inside an input element.
 	Object.keys(controls).forEach(key => {
 		scene.input.keyboard.removeCapture(controls[key].keyCode);
 	});
 
+	// Create boost animation
 	scene.anims.create({
 		key: 'boost_on',
 		frames: scene.anims.generateFrameNumbers('boost', {start: 0, end: 3}),
@@ -82,10 +103,15 @@ function create(){
 		repeat: -1
 	});
 
+	// Join a Game
+	// Callback is called on success
 	socket.emit("join game", (newPlayerID, map, newSETTINGS) => {
+		// Store Shared Settings
 		SETTINGS = newSETTINGS;
+		// Store Client's player ID
 		clientPlayerID = newPlayerID;
 
+		// Go through the 2d tile array to build the map
 		map.mapData.tiles.forEach((tileRow, y) => {
 			tileRow.forEach((tileID, x) => {
 				let sprite = null;
@@ -102,6 +128,7 @@ function create(){
 			});
 		});
 
+		// Go through each map element to build the rest of the map.
 		map.elements.forEach(element => {
 			let sprite = null;
 
@@ -138,14 +165,25 @@ function create(){
 
 				mapSprites.floors.push(floorSprite);
 				mapSprites.boosts[element.id] = boostSprite;
+			} else if(element.type === "Bomb"){
+				let floorSprite = scene.add.image(xPos, yPos, "tiles");
+				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
+
+				let bombSprite = scene.add.sprite(xPos, yPos, "tiles");
+				bombSprite.setFrame(CLIENT_SETTINGS.FRAMES.BOMB_ON);
+
+				mapSprites.floors.push(floorSprite);
+				mapSprites.boosts[element.id] = bombSprite;
 			}
 		});
-
+		
+		// Setup all the socket event handlers
 		socketHandler();
 	});
 }
 
 function update(){
+	// Check if the clients sprite exists.
 	if(playerSprites[clientPlayerID]){
 		// Refer to "input" key in settings.js
 		let inputObj = {
@@ -155,22 +193,24 @@ function update(){
 			right: controls.right.isDown || controls.right2.isDown,
 		};
 
+		// send input
 		socket.emit("input", inputObj);
 	}
 
+	// Iterate through each player sprite
 	Object.keys(playerSprites).forEach(playerID => {
 		let playerData = gameData.players[playerID];
 
 		if(playerSprites[playerID]) {
-			playerSprites[playerID].x = playerSprites[playerID].body.position.x;
-			playerSprites[playerID].y = playerSprites[playerID].body.position.y;
+			playerSprites[playerID].x = playerSprites[playerID].spriteBody.position.x;
+			playerSprites[playerID].y = playerSprites[playerID].spriteBody.position.y;
 
 			playerSprites[playerID].setVisible(!playerData.dead);
 
 			playerSprites[playerID].flagSprite.x = playerSprites[playerID].x + (SETTINGS.tileSize / 2.5);
 			playerSprites[playerID].flagSprite.y = playerSprites[playerID].y - (SETTINGS.tileSize / 2.5);
 
-			playerSprites[playerID].setRotation(playerSprites[playerID].body.angle);
+			playerSprites[playerID].setRotation(playerSprites[playerID].spriteBody.angle);
 
 			if(playerData.hasFlag) {
 				playerSprites[playerID].flagSprite.setFrame(playerData.team === SETTINGS.TEAM.RED ? CLIENT_SETTINGS.FRAMES.BLUEFLAG : CLIENT_SETTINGS.FRAMES.REDFLAG);
@@ -183,6 +223,7 @@ function update(){
 		}
 	});
 
+	// update engine
 	Engine.update(engine, 1000 / 60);
 }
 
@@ -190,18 +231,20 @@ function socketHandler(){
 	socket.on("world data", data => {
 		gameData = data;
 
+		// Iterate through the player data's and update the cleint side prediction bodies.
 		Object.keys(gameData.players).forEach(playerID => {
 			let playerData = gameData.players[playerID];
 
 			if(playerSprites[playerID]) {
-				Body.setPosition(playerSprites[playerID].body, {x: playerData.x, y: playerData.y});
-				Body.setVelocity(playerSprites[playerID].body, {x: playerData.xVelocity * 0.6, y: playerData.yVelocity * 0.6});
-				Body.setAngle(playerSprites[playerID].body, playerData.rotation);
+				Body.setPosition(playerSprites[playerID].spriteBody, {x: playerData.x, y: playerData.y});
+				Body.setVelocity(playerSprites[playerID].spriteBody, {x: playerData.xVelocity * 0.6, y: playerData.yVelocity * 0.6});
+				Body.setAngle(playerSprites[playerID].spriteBody, playerData.rotation);
 			} else {
 				playerSprites[playerID] = createPlayerSprite(playerData);
 			}
 		});
 
+		// Update the game elements.
 		gameData.elements.forEach(element => {
 			if(element.type === "Flag") {
 				mapSprites.flags[element.id].setAlpha(element.taken ? 0.4 : 1);
@@ -212,6 +255,20 @@ function socketHandler(){
 					mapSprites.boosts[element.id].anims.stop("boost_on");
 					mapSprites.boosts[element.id].setFrame(4);
 				}
+			} else if(element.type === "Bomb") {
+				if(element.isOn) {
+					mapSprites.boosts[element.id].setFrame(CLIENT_SETTINGS.FRAMES.BOMB_ON);
+				} else {
+					mapSprites.boosts[element.id].setFrame(CLIENT_SETTINGS.FRAMES.BOMB_OFF);
+				}
+			}
+		});
+
+		gameData.events.forEach(event => {
+			if(event.type === SETTINGS.EVENTS.PLAYER_LEFT){
+				let removedPlayerID = event.data;
+
+				removePlayerSprite(removedPlayerID);
 			}
 		});
 	});
@@ -221,9 +278,9 @@ function createPlayerSprite(playerData){
 	let sprite = scene.add.sprite(0, 0, "tiles");
 	sprite.setFrame(playerData.team === SETTINGS.TEAM.RED ? CLIENT_SETTINGS.FRAMES.REDBALL : CLIENT_SETTINGS.FRAMES.BLUEBALL);
 
-	sprite.body = Bodies.circle(0, 0, SETTINGS.BALL.SIZE);
+	sprite.spriteBody = Bodies.circle(0, 0, SETTINGS.BALL.SIZE);
 
-	World.add(engine.world, sprite.body);
+	World.add(engine.world, sprite.spriteBody);
 
 	sprite.flagSprite = scene.add.sprite(0, 0, "tiles");
 	sprite.flagSprite.setFrame(CLIENT_SETTINGS.FRAMES.REDFLAG);
@@ -234,4 +291,18 @@ function createPlayerSprite(playerData){
 	}
 
 	return sprite;
+}
+
+function removePlayerSprite(playerID){
+	// Remove Ball Body from world
+	World.remove(engine.world, playerSprites[playerID].spriteBody);
+
+	// Destroy all child sprites
+	playerSprites[playerID].flagSprite.destroy();
+	playerSprites[playerID].destroy();
+
+	// Delete sprite from playerSprites
+	delete playerSprites[playerID];
+
+	return playerID;
 }
