@@ -10,7 +10,9 @@ let Engine = Matter.Engine,
 
 class Wall extends GameElement {
 	constructor({x, y}){
-		super(Bodies.rectangle(x, y, SETTINGS.tileSize, SETTINGS.tileSize, { isStatic: true }));
+		super(Bodies.rectangle(x, y, SETTINGS.tileSize, SETTINGS.tileSize, {
+			isStatic: true
+		}));
 		this.body.elementType = "Wall";
 		this.isStatic = true;
 	}

@@ -170,8 +170,15 @@ class Game {
 					let player2 = this.players[pair.bodyB.elementID];
 
 					if(player1 && player2){
+						// Player vs Player should have 0 friction
+						player1.body.friction = 0;
+						player2.body.friction = 0;
+
+						// Check if they both aren't dead
 						if(!player1.dead && !player2.dead){
+							// Check if they aren't on the same team
 							if(player1.team !== player2.team){
+								// If either of them has the flag, kill them.
 								if(player1.hasFlag){
 									this.respawnPlayer(player1);
 								}
@@ -235,9 +242,39 @@ class Game {
 				}
 			});
 		});
+
+		// Called once when a collision ends
+		Events.on(this.engine, "collisionEnd", e => {
+			e.pairs.forEach((pair, idx) => {
+				// Player vs Player End Collision handling
+				if(detectPairObject(pair, "Player", "Player")){
+					let player1 = this.players[pair.bodyA.elementID];
+					let player2 = this.players[pair.bodyB.elementID];
+
+					if(player1 && player2){
+						// Reset Friction after they stop touching
+						player1.body.friction = SETTINGS.BALL.FRICTION;
+						player2.body.friction = SETTINGS.BALL.FRICTION;
+					}
+				}
+
+				// Check if either collided bodies are players.
+				if(pair.bodyA.elementType === "Player" || pair.bodyB.elementType === "Player") {
+					let playerBody = pair.bodyA.elementType === "Player" ? pair.bodyA : pair.bodyB;
+					let elementBody = pair.bodyA.elementType === "Player" ? pair.bodyB : pair.bodyA;
+
+					let playerObj = this.players[playerBody.elementID];
+					let elementObj = this.map.find(a => a.id === elementBody.elementID);
+
+					// Call the element's onEndPlayerTouch function
+					if(elementObj && playerObj && !playerObj.dead) elementObj.onEndPlayerTouch(playerObj);
+				}
+			});
+		});
 	}
 
 	/**
+	 * Adds a player to the game using a socket.io object.
 	 * @param  {Socket} socket - Player's socket object
 	 * @return {Object} Returns data that player needs in the callback. ({player, map, SETTINGS})
 	 */
@@ -248,7 +285,7 @@ class Game {
 			(this.mapData.tiles.length * SETTINGS.tileSize) / 2,
 			SETTINGS.BALL.SIZE,
 			{
-				friction: 0.05,
+				friction: SETTINGS.BALL.FRICTION,
 				frictionAir: 0.02,
 				density: SETTINGS.BALL.DENSITY,
 				restitution: SETTINGS.BALL.BOUNCINESS
@@ -281,6 +318,11 @@ class Game {
 		}, SETTINGS};
 	}
 
+	/**
+	 * Removes player from the game using player object.
+	 * @param  {Player} player Player Object
+	 * @return {Boolean}       Returns true on success
+	 */
 	removePlayer(player){
 		this.respawnPlayer(player);
 		World.remove(this.engine.world, player.body);
@@ -288,11 +330,41 @@ class Game {
 		this.events.push({type: SETTINGS.EVENTS.PLAYER_LEFT, data: player.id});
 
 		delete this.players[player.id];
+
+		return true;
+	}
+
+	/**
+	 * Creates an explosion in the world
+	 * @param  {Vector} worldVector Where the explosion should occur in world-space
+	 * @param  {Number} range       Range of the explosion in pixels
+	 * @param  {Number} power       Power of the explosion
+	 * @return {Boolean}            Returns true on success
+	 */
+	createExplosion(worldVector, range, power){
+		Object.keys(this.players).forEach(playerID => {
+			let player = this.players[playerID];
+
+			let bombAngle = Math.atan2(player.body.position.y - worldVector.y, player.body.position.x - worldVector.x);
+			let distanceToBomb = Math.distance(player.body.position.x, player.body.position.y, worldVector.x, worldVector.y);
+
+			let bombPower = (range / distanceToBomb) * power;
+
+			// console.log(bombAngle, bombPower, distanceToBomb, {x: Math.cos(bombAngle) * bombPower, y: Math.sin(bombAngle) * bombPower});
+
+			// Need to applyForce asynchronously from this context using setTimeout, since applyForce must be called before the next tick update.
+			// May not work without it.
+			setTimeout(() => {
+				Body.applyForce(player.body, worldVector, {x: Math.cos(bombAngle) * bombPower, y: Math.sin(bombAngle) * bombPower});
+			}, 0);
+		});
+
+		return true;
 	}
 
 	/**
 	 * Kills the player, waits until respawn time is up, then teleports the player to a random spawn point.
-	 * @param  {Player} player Player to respawn
+	 * @param  {Player}  player Player to respawn
 	 * @return {Boolean} Returns true or false depending on success.
 	 */
 	respawnPlayer(player){
@@ -329,7 +401,7 @@ class Game {
 
 	/**
 	 * Bring the flag that the player has back to base.
-	 * @param  {Player} player The player that has the flag.
+	 * @param  {Player}  player The player that has the flag.
 	 * @return {Boolean} Returns true if successful, false if unsuccessful
 	 */
 	returnFlag(player){
@@ -355,10 +427,10 @@ class Game {
 
 /**
  * Given a body pair, this function detects both element types exist inside the pair.
- * @param  {Object} pair         Matter.js Body Pair to check
- * @param  {String} elementType1 An Element Type
- * @param  {String} elementType2 Another Element Type
- * @return {Boolean}
+ * @param  {Object}  pair         Matter.js Body Pair to check
+ * @param  {String}  elementType1 An Element Type
+ * @param  {String}  elementType2 Another Element Type
+ * @return {Boolean} Returns true if detected both elements, otherwise returns false.
  */
 function detectPairObject(pair, elementType1, elementType2){
 	let pairArr = [pair.bodyA.elementType, pair.bodyB.elementType];
@@ -372,7 +444,7 @@ function detectPairObject(pair, elementType1, elementType2){
  * Given a body pair, this function returns a body that matches the element type. 
  * @param  {Object} pair        Matter.js Body Pair
  * @param  {String} elementType The element type to find
- * @return {Body|Boolean} Returns false if it can't find a body.
+ * @return {Body|Boolean}       Returns false if it can't find a body.
  */
 function getPairObject(pair, elementType){
 	if(pair.bodyA.elementType === elementType){

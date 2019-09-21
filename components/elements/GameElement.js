@@ -31,6 +31,10 @@ class GameElement {
 		// console.log("epic");
 	}
 
+	onEndPlayerTouch(player){
+		
+	}
+
 	sendable(){
 		return {
 			id: this.body.elementID,

@@ -21,19 +21,8 @@ class Bomb extends GameElement {
 		if(this.isOn) {
 			this.isOn = false;
 
-			let bombAngle = Math.atan2(player.body.position.y - this.body.position.y, player.body.position.x - this.body.position.x);
-			let distanceToBomb = Math.distance(player.body.position.x, player.body.position.y, this.body.position.x, this.body.position.y);
+			this.game.createExplosion(this.body.position, SETTINGS.GAME.BOMB_RANGE, SETTINGS.GAME.BOMB_POWER);
 
-			let bombPower = (SETTINGS.GAME.BOMB_RANGE / distanceToBomb) * SETTINGS.GAME.BOMB_POWER;
-
-			// console.log(bombAngle, bombPower, distanceToBomb, {x: Math.cos(bombAngle) * bombPower, y: Math.sin(bombAngle) * bombPower});
-
-			// Need to applyForce asynchronously from this context
-			setTimeout(() => {
-				Body.applyForce(player.body, this.body.position, {x: Math.cos(bombAngle) * bombPower, y: Math.sin(bombAngle) * bombPower});
-			}, 0);
-
-			
 			setTimeout(() => {
 				this.isOn = true;
 			}, SETTINGS.GAME.BOMB_RESPAWN_TIME);
