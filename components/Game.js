@@ -2,6 +2,7 @@ const Matter = require('matter-js');
 const _ = require('lodash');
 const SETTINGS = require('./settings');
 const Player = require('./Player');
+const Utils = require('./Utils');
 
 let Engine = Matter.Engine,
 	Render = Matter.Render,
@@ -15,6 +16,7 @@ const Flag = require('./elements/Flag');
 const Spike = require('./elements/Spike');
 const Boost = require('./elements/Boost');
 const Bomb = require('./elements/Bomb');
+const Button = require('./elements/Button');
 
 class Game {
 	constructor({mapData, io}){
@@ -45,43 +47,45 @@ class Game {
 		// Goes through each tile and places the correct game element at that position.
 		for (let y = this.mapData.tiles.length - 1; y >= 0; y--) {
 			for (let x = this.mapData.tiles[y].length - 1; x >= 0; x--) {
+				let worldVector = Utils.TileToXY({x, y});
+
 				if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.WALL){
-					this.map.push(new Wall({x: (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2), y: (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2)}));
+					this.map.push(new Wall(worldVector));
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.REDFLAG){
 					this.map.push(new Flag({
-						x: (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
-						y: (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
+						...worldVector,
 						team: SETTINGS.TEAM.RED,
 						game: this
 					}));
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BLUEFLAG){
 					this.map.push(new Flag({
-						x: (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
-						y: (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
+						...worldVector,
 						team: SETTINGS.TEAM.BLUE,
 						game: this
 					}));
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.REDSPAWN){
-					this.mapSpawns.red.push({x: (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2), y: (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2)});
+					this.mapSpawns.red.push(worldVector);
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BLUESPAWN){
-					this.mapSpawns.blue.push({x: (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2), y: (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2)});
+					this.mapSpawns.blue.push(worldVector);
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.SPIKE){
 					this.map.push(new Spike({
-						x: (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
-						y: (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
+						...worldVector,
 						game: this
 					}));
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BOOST){
 					this.map.push(new Boost({
-						x: (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
-						y: (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
+						...worldVector,
 						team: SETTINGS.TEAM.NEUTRAL,
 						game: this
 					}));
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BOMB){
 					this.map.push(new Bomb({
-						x: (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
-						y: (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2),
+						...worldVector,
+						game: this
+					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BUTTON){
+					this.map.push(new Button({
+						...worldVector,
 						game: this
 					}));
 				}
@@ -286,7 +290,7 @@ class Game {
 			SETTINGS.BALL.SIZE,
 			{
 				friction: SETTINGS.BALL.FRICTION,
-				frictionAir: 0.02,
+				frictionAir: SETTINGS.BALL.AIR_FRICTION,
 				density: SETTINGS.BALL.DENSITY,
 				restitution: SETTINGS.BALL.BOUNCINESS
 			}
@@ -345,18 +349,21 @@ class Game {
 		Object.keys(this.players).forEach(playerID => {
 			let player = this.players[playerID];
 
-			let bombAngle = Math.atan2(player.body.position.y - worldVector.y, player.body.position.x - worldVector.x);
+			let explosionAngle = Math.atan2(player.body.position.y - worldVector.y, player.body.position.x - worldVector.x);
 			let distanceToBomb = Math.distance(player.body.position.x, player.body.position.y, worldVector.x, worldVector.y);
 
-			let bombPower = (range / distanceToBomb) * power;
+			// If the player is in explosion range
+			if(distanceToBomb < range){
+				let explosionPower = (range / distanceToBomb) * power;
 
-			// console.log(bombAngle, bombPower, distanceToBomb, {x: Math.cos(bombAngle) * bombPower, y: Math.sin(bombAngle) * bombPower});
+				// console.log(explosionAngle, explosionPower, distanceToBomb, {x: Math.cos(explosionAngle) * explosionPower, y: Math.sin(explosionAngle) * explosionPower});
 
-			// Need to applyForce asynchronously from this context using setTimeout, since applyForce must be called before the next tick update.
-			// May not work without it.
-			setTimeout(() => {
-				Body.applyForce(player.body, worldVector, {x: Math.cos(bombAngle) * bombPower, y: Math.sin(bombAngle) * bombPower});
-			}, 0);
+				// Need to applyForce asynchronously from this context using setTimeout, since applyForce must be called before the next tick update.
+				// May not work without it.
+				setTimeout(() => {
+					Body.applyForce(player.body, worldVector, {x: Math.cos(explosionAngle) * explosionPower, y: Math.sin(explosionAngle) * explosionPower});
+				}, 0);
+			}
 		});
 
 		return true;

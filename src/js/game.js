@@ -1,7 +1,7 @@
 let config = {
 	type: Phaser.AUTO,
-	width: 800,
-	height: 600,
+	width: 960,
+	height: 540,
 	scene: {
 		preload: preload,
 		create: create,
@@ -45,7 +45,8 @@ let CLIENT_SETTINGS = {
 		BLUEBALL: 15,
 		SPIKE: 12,
 		BOMB_ON: 28,
-		BOMB_OFF: 44
+		BOMB_OFF: 44,
+		BUTTON: 109
 	}
 };
 
@@ -54,7 +55,9 @@ let mapSprites = {
 	walls: {},
 	flags: {},
 	spikes: {},
-	boosts: {}
+	boosts: {},
+	bombs: {},
+	buttons: {}
 };
 
 // Initialize Matter.js Engine
@@ -173,7 +176,16 @@ function create(){
 				bombSprite.setFrame(CLIENT_SETTINGS.FRAMES.BOMB_ON);
 
 				mapSprites.floors.push(floorSprite);
-				mapSprites.boosts[element.id] = bombSprite;
+				mapSprites.bombs[element.id] = bombSprite;
+			} else if(element.type === "Button"){
+				let floorSprite = scene.add.image(xPos, yPos, "tiles");
+				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
+
+				let buttonSprite = scene.add.sprite(xPos, yPos, "tiles");
+				buttonSprite.setFrame(CLIENT_SETTINGS.FRAMES.BUTTON);
+
+				mapSprites.floors.push(floorSprite);
+				mapSprites.buttons[element.id] = buttonSprite;
 			}
 		});
 		
@@ -257,9 +269,9 @@ function socketHandler(){
 				}
 			} else if(element.type === "Bomb") {
 				if(element.isOn) {
-					mapSprites.boosts[element.id].setFrame(CLIENT_SETTINGS.FRAMES.BOMB_ON);
+					mapSprites.bombs[element.id].setFrame(CLIENT_SETTINGS.FRAMES.BOMB_ON);
 				} else {
-					mapSprites.boosts[element.id].setFrame(CLIENT_SETTINGS.FRAMES.BOMB_OFF);
+					mapSprites.bombs[element.id].setFrame(CLIENT_SETTINGS.FRAMES.BOMB_OFF);
 				}
 			}
 		});
@@ -278,7 +290,12 @@ function createPlayerSprite(playerData){
 	let sprite = scene.add.sprite(0, 0, "tiles");
 	sprite.setFrame(playerData.team === SETTINGS.TEAM.RED ? CLIENT_SETTINGS.FRAMES.REDBALL : CLIENT_SETTINGS.FRAMES.BLUEBALL);
 
-	sprite.spriteBody = Bodies.circle(0, 0, SETTINGS.BALL.SIZE);
+	sprite.spriteBody = Bodies.circle(0, 0, SETTINGS.BALL.SIZE, {
+		friction: SETTINGS.BALL.FRICTION,
+		frictionAir: SETTINGS.BALL.AIR_FRICTION,
+		density: SETTINGS.BALL.DENSITY,
+		restitution: SETTINGS.BALL.BOUNCINESS
+	});
 
 	World.add(engine.world, sprite.spriteBody);
 

@@ -1,6 +1,6 @@
 const SETTINGS = {
-	gameWidth: 800,
-	gameHeight: 600,
+	gameWidth: 960,
+	gameHeight: 540,
 	tileSize: 40,
 	tickSpeed: 30,
 	socketTickSpeed: 20,
@@ -9,17 +9,18 @@ const SETTINGS = {
 		BOOST_POWER: 20,
 		BOOST_RESPAWN_TIME: 5000,
 		BOMB_RANGE: 150,
-		BOMB_POWER: 0.008,
+		BOMB_POWER: 0.022,
 		BOMB_RESPAWN_TIME: 5000,
 		FC_INVINCIBLE_TIME: 250
 	},
 	BALL: {
 		SIZE: 19,
-		ACCELERATION: 0.00023,
-		DENSITY: 0.002,
-		BOUNCINESS: 0.22,
+		ACCELERATION: 0.0004,
+		DENSITY: 0.004,
+		BOUNCINESS: 0.23,
 		TOP_VELOCITY: 20,
-		FRICTION: 0.05,
+		FRICTION: 0.07,
+		AIR_FRICTION: 0.02
 	},
 	TEAM: {
 		RED: 1,
@@ -39,13 +40,15 @@ const SETTINGS = {
 		BLUESPAWN: 4.2,
 		SPIKE: 5,
 		BOOST: 6,
-		BOMB: 7
+		BOMB: 7,
+		BUTTON: 8
 	},
 	ELEMENT_SIZES: {
 		FLAG: 15,
 		SPIKE: 14,
 		BOOST: 15,
-		BOMB: 15
+		BOMB: 15,
+		BUTTON: 8
 	}
 };
 

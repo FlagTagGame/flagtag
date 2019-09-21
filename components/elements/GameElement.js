@@ -19,6 +19,14 @@ class GameElement {
 		this.body.elementType = "GameElement";
 	}
 
+	activate(player){
+
+	}
+
+	deactivate(player){
+		
+	}
+
 	onTick(){
 
 	}
@@ -32,7 +40,7 @@ class GameElement {
 	}
 
 	onEndPlayerTouch(player){
-		
+
 	}
 
 	sendable(){

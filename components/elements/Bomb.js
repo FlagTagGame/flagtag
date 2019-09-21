@@ -1,5 +1,6 @@
 const Matter = require('matter-js');
 const SETTINGS = require('../settings');
+const Utils = require('../Utils');
 const GameElement = require('./GameElement');
 
 let Engine = Matter.Engine,
@@ -17,7 +18,7 @@ class Bomb extends GameElement {
 		this.game = game;
 	}
 
-	onStartPlayerTouch(player){
+	activate(){
 		if(this.isOn) {
 			this.isOn = false;
 
@@ -27,6 +28,10 @@ class Bomb extends GameElement {
 				this.isOn = true;
 			}, SETTINGS.GAME.BOMB_RESPAWN_TIME);
 		}
+	}
+
+	onStartPlayerTouch(player){
+		this.activate();
 	}
 
 	sendable(){
