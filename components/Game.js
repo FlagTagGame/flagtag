@@ -18,6 +18,8 @@ const Boost = require('./elements/Boost');
 const Bomb = require('./elements/Bomb');
 const Button = require('./elements/Button');
 const Gate = require('./elements/Gate');
+const Teamtile = require('./elements/Teamtile');
+const Portal = require('./elements/Portal');
 
 class Game {
 	constructor({mapData, io}){
@@ -113,6 +115,29 @@ class Game {
 						defaultState: SETTINGS.TEAM.BLUE,
 						game: this
 					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.NEUTRALTEAMTILE){
+					this.map.push(new Teamtile({
+						...worldVector,
+						team: SETTINGS.TEAM.NEUTRAL,
+						game: this
+					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.REDTEAMTILE){
+					this.map.push(new Teamtile({
+						...worldVector,
+						team: SETTINGS.TEAM.RED,
+						game: this
+					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BLUETEAMTILE){
+					this.map.push(new Teamtile({
+						...worldVector,
+						team: SETTINGS.TEAM.BLUE,
+						game: this
+					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.PORTAL){
+					this.map.push(new Portal({
+						...worldVector,
+						game: this
+					}));
 				}
 			}
 		}
@@ -138,28 +163,38 @@ class Game {
 				if(!player.dead){
 					// Move the player depending on the keys pressed.
 					let moveObj = {x: 0, y: 0};
+
+					let modifiedAcceleration = SETTINGS.BALL.ACCELERATION;
+
 					if(player.input.left) {
-						moveObj.x -= SETTINGS.BALL.ACCELERATION;
+						moveObj.x -= modifiedAcceleration;
 					} else if(player.input.right) {
-						moveObj.x += SETTINGS.BALL.ACCELERATION;
+						moveObj.x += modifiedAcceleration;
 					}
 
 					if(player.input.up) {
-						moveObj.y -= SETTINGS.BALL.ACCELERATION;
+						moveObj.y -= modifiedAcceleration;
 					} else if(player.input.down) {
-						moveObj.y += SETTINGS.BALL.ACCELERATION;
+						moveObj.y += modifiedAcceleration;
 					}
 
 					// Clamping the velocity (top speed)
-					Body.setVelocity(player.body, {
-						x: Math.clamp(player.body.velocity.x, -SETTINGS.BALL.TOP_VELOCITY, SETTINGS.BALL.TOP_VELOCITY),
-						y: Math.clamp(player.body.velocity.y, -SETTINGS.BALL.TOP_VELOCITY, SETTINGS.BALL.TOP_VELOCITY)
-					});
+					if(player.onTeamtile){
+						Body.setVelocity(player.body, {
+							x: Math.clamp(player.body.velocity.x, -SETTINGS.GAME.TEAMTILE_TOP_VELOCITY, SETTINGS.GAME.TEAMTILE_TOP_VELOCITY),
+							y: Math.clamp(player.body.velocity.y, -SETTINGS.GAME.TEAMTILE_TOP_VELOCITY, SETTINGS.GAME.TEAMTILE_TOP_VELOCITY)
+						});
+					} else {
+						Body.setVelocity(player.body, {
+							x: Math.clamp(player.body.velocity.x, -SETTINGS.BALL.TOP_VELOCITY, SETTINGS.BALL.TOP_VELOCITY),
+							y: Math.clamp(player.body.velocity.y, -SETTINGS.BALL.TOP_VELOCITY, SETTINGS.BALL.TOP_VELOCITY)
+						});
+					}
 
 					// Move the player
 					Body.applyForce(player.body, player.body.position, {
-						x: moveObj.x + (player.body.velocity.x * 0.000005),
-						y: moveObj.y + (player.body.velocity.y * 0.000005)
+						x: moveObj.x,
+						y: moveObj.y
 					});
 
 					// console.log(player.body.velocity);

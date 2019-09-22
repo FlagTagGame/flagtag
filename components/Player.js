@@ -8,6 +8,8 @@ class Player {
 		this.hasFlag = false;
 		this.dead = false;
 		this.invincible = false;
+		this.isPortaling = false;
+		this.onTeamtile = false;
 
 		this.body = body;
 		this.socket = socket;

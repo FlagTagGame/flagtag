@@ -18,7 +18,7 @@ class Gate extends GameElement {
 		this.defaultState = defaultState;
 		this.state = defaultState;
 
-		console.log(Utils.XYToTile(this.body.position));
+		// console.log(Utils.XYToTile(this.body.position));
 	}
 
 	activate(playersOnButton){

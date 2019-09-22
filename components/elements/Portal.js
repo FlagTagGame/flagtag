@@ -9,16 +9,17 @@ let Engine = Matter.Engine,
 	Body = Matter.Body,
 	Bodies = Matter.Bodies;
 
-class Button extends GameElement {
+class Portal extends GameElement {
 	constructor({x, y, game}){
-		super(Bodies.circle(x, y, SETTINGS.ELEMENT_SIZES.BUTTON, { isSensor: true, isStatic: true }));
-		this.body.elementType = "Button";
+		super(Bodies.circle(x, y, SETTINGS.ELEMENT_SIZES.PORTAL, { isSensor: true, isStatic: true }));
+		this.body.elementType = "Portal";
 		// Convert World Space position into Tile Space position
 		let tileVector = Utils.XYToTile(this.body.position);
 
-		// console.log("button", tileVector);
+		console.log("portal", tileVector);
 
-		this.isOn = false;
+		this.isOn = true;
+		this.cooldown = 0;
 
 		this.game = game;
 
@@ -29,33 +30,40 @@ class Button extends GameElement {
 		setTimeout(() => {
 			// Check if any link data was provided by the map JSON file.
 			if(this.linkData){
-				// Compile an array of elements that are linked to this button.
+				this.cooldown = Number(this.linkData.cooldown) || 0;
+
+				// Compile an array of elements that are linked to this portal.
 				this.linkedElements = this.linkData.tiles.map(tileString => {
 					let tileArr = tileString.split(",");
-					return Utils.getElementByTile(this.game.map, {x: Number(tileArr[0]), y: Number(tileArr[1])});
+					let element = Utils.getElementByTile(this.game.map, {x: Number(tileArr[0]), y: Number(tileArr[1])});
+
+					if(element){
+						return element.body.elementType === "Portal" ? element : false;
+					} else return false;
 				}).filter(a => a);
+			} else {
+				this.isOn = false;
 			}
 		}, 0);
-
-		this.playersOnButton = {};
 
 		// console.log(this.linkedElements);
 	}
 
-	onActivePlayerTouch(player){
-		this.playersOnButton[player.id] = player;
-		// Activate all links when touched
-		this.linkedElements.forEach(element => {
-			element.activate(this.playersOnButton);
-		});
+	onStartPlayerTouch(player){
+		if(this.isOn && !player.isPortaling) {
+			this.isOn = false;
+			player.isPortaling = true;
+
+			if(this.linkedElements[0]) Body.setPosition(player.body, this.linkedElements[0].body.position);
+			
+			setTimeout(() => {
+				this.isOn = true;
+			}, this.cooldown);
+		}
 	}
 
 	onEndPlayerTouch(player){
-		delete this.playersOnButton[player.id];
-		// Deactivate all links when touched
-		this.linkedElements.forEach(element => {
-			element.deactivate(this.playersOnButton);
-		});
+		player.isPortaling = false;
 	}
 
 	sendable(){
@@ -75,4 +83,4 @@ Math.distance = function(x1, y1, x2, y2){
 	return Math.sqrt(Math.sq(x2 - x1) + Math.sq(y2 - y1));
 }
 
-module.exports = Button;
+module.exports = Portal;

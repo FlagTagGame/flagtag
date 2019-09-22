@@ -52,7 +52,10 @@ let CLIENT_SETTINGS = {
 		NONEGATE: 60,
 		NEUTRALGATE: 61,
 		REDGATE: 62,
-		BLUEGATE: 63
+		BLUEGATE: 63,
+		NEUTRALTEAMTILE: 93,
+		REDTEAMTILE: 94,
+		BLUETEAMTILE: 95
 	}
 };
 
@@ -64,7 +67,9 @@ let mapSprites = {
 	boosts: {},
 	bombs: {},
 	buttons: {},
-	gates: {}
+	gates: {},
+	teamtiles: {},
+	portals: {}
 };
 
 // Initialize Matter.js Engine
@@ -79,6 +84,7 @@ function preload(){
 	// Load sprite images
 	scene.load.spritesheet("tiles", "/assets/tiles.png", {frameWidth: 40, frameHeight: 40});
 	scene.load.spritesheet("boost", "/assets/boost.png", {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("portal", "/assets/portal.png", {frameWidth: 40, frameHeight: 40});
 	scene.load.image("wall", "/assets/wall.png");
 }
 
@@ -109,6 +115,13 @@ function create(){
 	scene.anims.create({
 		key: 'boost_on',
 		frames: scene.anims.generateFrameNumbers('boost', {start: 0, end: 3}),
+		frameRate: 10,
+		repeat: -1
+	});
+
+	scene.anims.create({
+		key: 'portal_on',
+		frames: scene.anims.generateFrameNumbers('portal', {start: 0, end: 3}),
 		frameRate: 10,
 		repeat: -1
 	});
@@ -203,6 +216,19 @@ function create(){
 				let gateSprite = scene.add.image(xPos, yPos, "tiles");
 				gateSprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.state] + "GATE"]);
 				mapSprites.gates[element.id] = gateSprite;
+			} else if(element.type === "Teamtile"){
+				console.log(element);
+				let teamtileSprite = scene.add.image(xPos, yPos, "tiles");
+				teamtileSprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.team] + "TEAMTILE"]);
+				mapSprites.teamtiles[element.id] = teamtileSprite;
+			} else if(element.type === "Portal"){
+				let floorSprite = scene.add.image(xPos, yPos, "tiles");
+				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
+
+				let portalSprite = scene.add.sprite(xPos, yPos, "portal", 0);
+
+				mapSprites.floors.push(floorSprite);
+				mapSprites.portals[element.id] = portalSprite;
 			}
 		});
 		
@@ -303,6 +329,15 @@ function socketHandler(){
 				}
 			} else if(element.type === "Gate") {
 				mapSprites.gates[element.id].setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.state] + "GATE"]);
+			} else if(element.type === "Portal") {
+				// Play Portal Animation if its on
+				if(element.isOn) {
+					mapSprites.portals[element.id].anims.play("portal_on", true);
+				} else {
+					// Stop the animation if the portal is off
+					mapSprites.portals[element.id].anims.stop("portal_on");
+					mapSprites.portals[element.id].setFrame(4);
+				}
 			}
 		});
 
