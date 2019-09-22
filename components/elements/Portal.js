@@ -16,7 +16,7 @@ class Portal extends GameElement {
 		// Convert World Space position into Tile Space position
 		let tileVector = Utils.XYToTile(this.body.position);
 
-		console.log("portal", tileVector);
+		// console.log("portal", tileVector);
 
 		this.isOn = true;
 		this.cooldown = 0;

@@ -217,7 +217,7 @@ function create(){
 				gateSprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.state] + "GATE"]);
 				mapSprites.gates[element.id] = gateSprite;
 			} else if(element.type === "Teamtile"){
-				console.log(element);
+				// console.log(element);
 				let teamtileSprite = scene.add.image(xPos, yPos, "tiles");
 				teamtileSprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.team] + "TEAMTILE"]);
 				mapSprites.teamtiles[element.id] = teamtileSprite;

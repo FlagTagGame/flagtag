@@ -417,6 +417,7 @@ class Game {
 	 * @return {Boolean}            Returns true on success
 	 */
 	createExplosion(worldVector, range, power){
+		// console.log(worldVector, range, power);
 		Object.keys(this.players).forEach(playerID => {
 			let player = this.players[playerID];
 
@@ -424,7 +425,7 @@ class Game {
 			let distanceToBomb = Math.distance(player.body.position.x, player.body.position.y, worldVector.x, worldVector.y);
 
 			// If the player is in explosion range
-			if(distanceToBomb < range){
+			if(distanceToBomb < range && distanceToBomb !== 0){
 				let explosionPower = (range / distanceToBomb) * power;
 
 				// console.log(explosionAngle, explosionPower, distanceToBomb, {x: Math.cos(explosionAngle) * explosionPower, y: Math.sin(explosionAngle) * explosionPower});
@@ -448,14 +449,19 @@ class Game {
 	respawnPlayer(player){
 		if(!player.dead && !player.invincible){
 			player.die();
-			// Reset the players velocity
-			Body.setVelocity(player.body, {x: 0, y: 0});
+			this.createExplosion({...player.body.position}, SETTINGS.GAME.POOST_RANGE, SETTINGS.GAME.POOST_POWER);
 
 			this.returnFlag(player);
+
+			// Reset the players velocity
+			Body.setVelocity(player.body, {x: 0, y: 0});
 
 			// After the respawn time is up, find a random spawn point and teleport the player there.
 			setTimeout(() => {
 				if(!player) return;
+
+				// Reset the players velocity
+				Body.setVelocity(player.body, {x: 0, y: 0});
 
 				let randomSpawn;
 
