@@ -23,6 +23,7 @@ const SETTINGS = {
 		AIR_FRICTION: 0.02
 	},
 	TEAM: {
+		NONE: 0,
 		RED: 1,
 		BLUE: 2,
 		NEUTRAL: 3
@@ -41,14 +42,19 @@ const SETTINGS = {
 		SPIKE: 5,
 		BOOST: 6,
 		BOMB: 7,
-		BUTTON: 8
+		BUTTON: 8,
+		NONEGATE: 9,
+		NEUTRALGATE: 9.1,
+		REDGATE: 9.2,
+		BLUEGATE: 9.3
 	},
 	ELEMENT_SIZES: {
 		FLAG: 15,
 		SPIKE: 14,
 		BOOST: 15,
 		BOMB: 15,
-		BUTTON: 8
+		BUTTON: 8,
+		GATE: 40
 	}
 };
 

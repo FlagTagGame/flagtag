@@ -18,7 +18,7 @@ class Bomb extends GameElement {
 		this.game = game;
 	}
 
-	activate(){
+	activate(playersOnButton){
 		if(this.isOn) {
 			this.isOn = false;
 
@@ -30,8 +30,8 @@ class Bomb extends GameElement {
 		}
 	}
 
-	onStartPlayerTouch(player){
-		this.activate();
+	onStartPlayerTouch(playersOnButton){
+		this.activate(playersOnButton);
 	}
 
 	sendable(){

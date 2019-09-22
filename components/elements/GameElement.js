@@ -28,20 +28,20 @@ class GameElement {
 	}
 
 	/**
-	 * A callback thats called when a button linked to this element is touched
-	 * @param  {Player} player The player that touched the button
-	 * @return {undefined}     Doesn't return anything.
+	 * A callback thats called when a button linked to this element is being actively touched
+	 * @param  {Object} playersOnButton An Object of players that are on the button
+	 * @return {undefined}              Doesn't return anything.
 	 */
-	activate(player){
+	activate(playersOnButton){
 
 	}
 
 	/**
 	 * A callback thats called when a button linked to this element is untouched
-	 * @param  {[type]} player The player that untouched the button
-	 * @return {undefined}     Doesn't return anything.
+	 * @param  {Object} playersOnButton An Object of players that are on the button
+	 * @return {undefined}              Doesn't return anything.
 	 */
-	deactivate(player){
+	deactivate(playersOnButton){
 		
 	}
 

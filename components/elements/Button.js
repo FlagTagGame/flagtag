@@ -16,7 +16,9 @@ class Button extends GameElement {
 		// Convert World Space position into Tile Space position
 		let tileVector = Utils.XYToTile(this.body.position);
 
-		this.isOn = true;
+		console.log("button", tileVector);
+
+		this.isOn = false;
 
 		this.game = game;
 
@@ -35,20 +37,24 @@ class Button extends GameElement {
 			}
 		}, 0);
 
+		this.playersOnButton = {};
+
 		// console.log(this.linkedElements);
 	}
 
-	onStartPlayerTouch(player){
+	onActivePlayerTouch(player){
+		this.playersOnButton[player.id] = player;
 		// Activate all links when touched
 		this.linkedElements.forEach(element => {
-			element.activate();
+			element.activate(this.playersOnButton);
 		});
 	}
 
 	onEndPlayerTouch(player){
+		delete this.playersOnButton[player.id];
 		// Deactivate all links when touched
 		this.linkedElements.forEach(element => {
-			element.deactivate();
+			element.deactivate(this.playersOnButton);
 		});
 	}
 

@@ -17,6 +17,7 @@ const Spike = require('./elements/Spike');
 const Boost = require('./elements/Boost');
 const Bomb = require('./elements/Bomb');
 const Button = require('./elements/Button');
+const Gate = require('./elements/Gate');
 
 class Game {
 	constructor({mapData, io}){
@@ -86,6 +87,30 @@ class Game {
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BUTTON){
 					this.map.push(new Button({
 						...worldVector,
+						game: this
+					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.NONEGATE){
+					this.map.push(new Gate({
+						...worldVector,
+						defaultState: SETTINGS.TEAM.NONE,
+						game: this
+					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.NEUTRALGATE){
+					this.map.push(new Gate({
+						...worldVector,
+						defaultState: SETTINGS.TEAM.NEUTRAL,
+						game: this
+					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.REDGATE){
+					this.map.push(new Gate({
+						...worldVector,
+						defaultState: SETTINGS.TEAM.RED,
+						game: this
+					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BLUEGATE){
+					this.map.push(new Gate({
+						...worldVector,
+						defaultState: SETTINGS.TEAM.BLUE,
 						game: this
 					}));
 				}

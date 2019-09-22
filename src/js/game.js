@@ -35,6 +35,8 @@ let playerSprites = {};
 // Shared Server and Client Settings, is set when player joins game.
 let SETTINGS = {};
 
+let TEAM_TO_NAME = {};
+
 let CLIENT_SETTINGS = {
 	FRAMES: {
 		FLOOR: 77,
@@ -46,7 +48,11 @@ let CLIENT_SETTINGS = {
 		SPIKE: 12,
 		BOMB_ON: 28,
 		BOMB_OFF: 44,
-		BUTTON: 109
+		BUTTON: 109,
+		NONEGATE: 60,
+		NEUTRALGATE: 61,
+		REDGATE: 62,
+		BLUEGATE: 63
 	}
 };
 
@@ -57,7 +63,8 @@ let mapSprites = {
 	spikes: {},
 	boosts: {},
 	bombs: {},
-	buttons: {}
+	buttons: {},
+	gates: {}
 };
 
 // Initialize Matter.js Engine
@@ -114,6 +121,12 @@ function create(){
 		// Store Client's player ID
 		clientPlayerID = newPlayerID;
 
+		// For converting Team ID into the team name
+		TEAM_TO_NAME = Object.keys(SETTINGS.TEAM).reduce((acc, val) => {
+			acc[SETTINGS.TEAM[val]] = val;
+			return acc;
+		}, {});
+
 		// Go through the 2d tile array to build the map
 		map.mapData.tiles.forEach((tileRow, y) => {
 			tileRow.forEach((tileID, x) => {
@@ -147,7 +160,7 @@ function create(){
 				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
 
 				let flagSprite = scene.add.image(xPos, yPos, "tiles");
-				flagSprite.setFrame(element.team === SETTINGS.TEAM.RED ? CLIENT_SETTINGS.FRAMES.REDFLAG : CLIENT_SETTINGS.FRAMES.BLUEFLAG);
+				flagSprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.team] + "FLAG"]);
 
 				mapSprites.floors.push(floorSprite);
 				mapSprites.flags[element.id] = flagSprite;
@@ -186,6 +199,10 @@ function create(){
 
 				mapSprites.floors.push(floorSprite);
 				mapSprites.buttons[element.id] = buttonSprite;
+			} else if(element.type === "Gate"){
+				let gateSprite = scene.add.image(xPos, yPos, "tiles");
+				gateSprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.state] + "GATE"]);
+				mapSprites.gates[element.id] = gateSprite;
 			}
 		});
 		
@@ -230,7 +247,10 @@ function update(){
 
 			// Show the flag is the player has it
 			if(playerData.hasFlag) {
-				playerSprites[playerID].flagSprite.setFrame(playerData.team === SETTINGS.TEAM.RED ? CLIENT_SETTINGS.FRAMES.BLUEFLAG : CLIENT_SETTINGS.FRAMES.REDFLAG);
+				// Set Frame to flag frame of players team
+				playerSprites[playerID].flagSprite.setFrame(
+					CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[playerData.team === SETTINGS.TEAM.RED ? SETTINGS.TEAM.BLUE : SETTINGS.TEAM.RED] + "FLAG"]
+				);
 				playerSprites[playerID].flagSprite.setVisible(true);
 			} else {
 				playerSprites[playerID].flagSprite.setVisible(false);
@@ -267,9 +287,11 @@ function socketHandler(){
 			if(element.type === "Flag") {
 				mapSprites.flags[element.id].setAlpha(element.taken ? 0.4 : 1);
 			} else if(element.type === "Boost") {
+				// Play Boost Animation if its on
 				if(element.isOn) {
 					mapSprites.boosts[element.id].anims.play("boost_on", true);
 				} else {
+					// Stop the animation if the boost is off
 					mapSprites.boosts[element.id].anims.stop("boost_on");
 					mapSprites.boosts[element.id].setFrame(4);
 				}
@@ -279,6 +301,8 @@ function socketHandler(){
 				} else {
 					mapSprites.bombs[element.id].setFrame(CLIENT_SETTINGS.FRAMES.BOMB_OFF);
 				}
+			} else if(element.type === "Gate") {
+				mapSprites.gates[element.id].setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.state] + "GATE"]);
 			}
 		});
 
@@ -294,7 +318,7 @@ function socketHandler(){
 
 function createPlayerSprite(playerData){
 	let sprite = scene.add.sprite(0, 0, "tiles");
-	sprite.setFrame(playerData.team === SETTINGS.TEAM.RED ? CLIENT_SETTINGS.FRAMES.REDBALL : CLIENT_SETTINGS.FRAMES.BLUEBALL);
+	sprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[playerData.team] + "BALL"]);
 
 	sprite.spriteBody = Bodies.circle(0, 0, SETTINGS.BALL.SIZE, {
 		friction: SETTINGS.BALL.FRICTION,
