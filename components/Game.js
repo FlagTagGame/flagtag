@@ -92,6 +92,18 @@ class Game {
 						team: SETTINGS.TEAM.NEUTRAL,
 						game: this
 					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.REDBOOST){
+					this.map.push(new Boost({
+						...worldVector,
+						team: SETTINGS.TEAM.RED,
+						game: this
+					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BLUEBOOST){
+					this.map.push(new Boost({
+						...worldVector,
+						team: SETTINGS.TEAM.BLUE,
+						game: this
+					}));
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.BOMB){
 					this.map.push(new Bomb({
 						...worldVector,
