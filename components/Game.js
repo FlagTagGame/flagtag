@@ -3,6 +3,8 @@ const _ = require('lodash');
 const SETTINGS = require('./settings');
 const Player = require('./Player');
 const Utils = require('./Utils');
+const MessagePack = require('what-the-pack');
+const { encode, decode } = MessagePack.initialize(2**22);
 
 let Engine = Matter.Engine,
 	Render = Matter.Render,
@@ -20,6 +22,7 @@ const Button = require('./elements/Button');
 const Gate = require('./elements/Gate');
 const Teamtile = require('./elements/Teamtile');
 const Portal = require('./elements/Portal');
+const Powerup = require('./elements/Powerup');
 
 class Game {
 	constructor({mapData, io}){
@@ -53,7 +56,15 @@ class Game {
 				let worldVector = Utils.TileToXY({x, y});
 
 				if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.WALL){
-					this.map.push(new Wall(worldVector));
+					this.map.push(new Wall({...worldVector, type: "full"}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.WALLTL){
+					this.map.push(new Wall({...worldVector, type: "tl"}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.WALLTR){
+					this.map.push(new Wall({...worldVector, type: "tr"}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.WALLBL){
+					this.map.push(new Wall({...worldVector, type: "bl"}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.WALLBR){
+					this.map.push(new Wall({...worldVector, type: "br"}));
 				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.REDFLAG){
 					this.map.push(new Flag({
 						...worldVector,
@@ -138,6 +149,11 @@ class Game {
 						...worldVector,
 						game: this
 					}));
+				} else if(this.mapData.tiles[y][x] === SETTINGS.TILE_IDS.POWERUP){
+					this.map.push(new Powerup({
+						...worldVector,
+						game: this
+					}));
 				}
 			}
 		}
@@ -160,11 +176,19 @@ class Game {
 			let playersArr = Object.values(this.players);
 
 			playersArr.forEach(player => {
+				Object.keys(player.powerups).forEach(key => {
+					if(player.powerups[key] > 0) {
+						player.powerups[key] -= (1000 / SETTINGS.tickSpeed);
+					} else {
+						player.powerups[key] = 0;
+					}
+				});
+
 				if(!player.dead){
 					// Move the player depending on the keys pressed.
 					let moveObj = {x: 0, y: 0};
 
-					let modifiedAcceleration = SETTINGS.BALL.ACCELERATION;
+					let modifiedAcceleration = SETTINGS.BALL.ACCELERATION * (player.onTeamtile ? 1.5 : 1) * (player.powerups[SETTINGS.POWERUPS.GRIP_ACCELERATION_MULTIPLIER] > 0 ? 1.25 : 1);
 
 					if(player.input.left) {
 						moveObj.x -= modifiedAcceleration;
@@ -217,12 +241,12 @@ class Game {
 			}, {});
 
 			playersObjectKeys.forEach(key => {
-				this.players[key].socket.emit("world data", {
+				this.players[key].socket.emit("world data", encode({
 					players: playersObject,
 					// Only send the non-static elements (not walls or spikes)
 					elements: this.map.filter(a => !a.isStatic).map(a => a.sendable()),
 					events: this.events
-				});
+				}));
 				// console.log(playersObject);
 			});
 			this.events = [];
@@ -253,13 +277,35 @@ class Game {
 						if(!player1.dead && !player2.dead){
 							// Check if they aren't on the same team
 							if(player1.team !== player2.team){
-								// If either of them has the flag, kill them.
-								if(player1.hasFlag){
-									this.respawnPlayer(player1);
+								
+								if(player1.powerups[SETTINGS.POWERUPS.ROLLING_BOMB] === 0){
+									if(player1.hasFlag){
+										this.respawnPlayer(player1);
+									}
+
+									if(player1.powerups[SETTINGS.POWERUPS.FORCEFIELD]) {
+										this.respawnPlayer(player2);
+									}
 								}
 
-								if(player2.hasFlag){
-									this.respawnPlayer(player2);
+								if(player2.powerups[SETTINGS.POWERUPS.ROLLING_BOMB] === 0){
+									if(player2.hasFlag){
+										this.respawnPlayer(player2);
+									}
+
+									if(player2.powerups[SETTINGS.POWERUPS.FORCEFIELD]) {
+										this.respawnPlayer(player1);
+									}
+								}
+
+								if(player1.powerups[SETTINGS.POWERUPS.ROLLING_BOMB]) {
+									player1.powerups[SETTINGS.POWERUPS.ROLLING_BOMB] = 0;
+									this.createExplosion({...player1.body.position}, SETTINGS.GAME.ROLLING_BOMB_RANGE, SETTINGS.GAME.ROLLING_BOMB_POWER);
+								}
+
+								if(player2.powerups[SETTINGS.POWERUPS.ROLLING_BOMB]) {
+									player2.powerups[SETTINGS.POWERUPS.ROLLING_BOMB] = 0;
+									this.createExplosion({...player2.body.position}, SETTINGS.GAME.ROLLING_BOMB_RANGE, SETTINGS.GAME.ROLLING_BOMB_POWER);
 								}
 							}
 						}
@@ -384,7 +430,7 @@ class Game {
 		this.players[player.id] = player;
 
 		// Respawn the player
-		this.respawnPlayer(player);
+		this.respawnPlayer(player, true);
 
 		// Send back data that the client needs.
 		return {player, map: {
@@ -402,7 +448,7 @@ class Game {
 		this.respawnPlayer(player);
 		World.remove(this.engine.world, player.body);
 
-		this.events.push({type: SETTINGS.EVENTS.PLAYER_LEFT, data: player.id});
+		this.events.push([SETTINGS.EVENTS.PLAYER_LEFT, player.id]);
 
 		delete this.players[player.id];
 
@@ -446,11 +492,11 @@ class Game {
 	 * @param  {Player}  player Player to respawn
 	 * @return {Boolean} Returns true or false depending on success.
 	 */
-	respawnPlayer(player){
+	respawnPlayer(player, firstTime){
 		if(!player.dead && !player.invincible){
 			player.die();
-			this.createExplosion({...player.body.position}, SETTINGS.GAME.POOST_RANGE, SETTINGS.GAME.POOST_POWER);
-
+			if(!firstTime) this.createExplosion({...player.body.position}, SETTINGS.GAME.POOST_RANGE, SETTINGS.GAME.POOST_POWER);
+			if(!firstTime) this.events.push([SETTINGS.EVENTS.PLAYER_POPPED, player.id]);
 			this.returnFlag(player);
 
 			// Reset the players velocity

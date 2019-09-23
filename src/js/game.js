@@ -36,6 +36,7 @@ let playerSprites = {};
 let SETTINGS = {};
 
 let TEAM_TO_NAME = {};
+let POWERUP_TO_NAME = {};
 
 let CLIENT_SETTINGS = {
 	FRAMES: {
@@ -55,7 +56,11 @@ let CLIENT_SETTINGS = {
 		BLUEGATE: 63,
 		NEUTRALTEAMTILE: 93,
 		REDTEAMTILE: 94,
-		BLUETEAMTILE: 95
+		BLUETEAMTILE: 95,
+		POWERUP_OFF: 140,
+		POWERUP_FORCEFIELD: 108,
+		POWERUP_ROLLING_BOMB: 92,
+		POWERUP_GRIP: 76
 	}
 };
 
@@ -69,7 +74,12 @@ let mapSprites = {
 	buttons: {},
 	gates: {},
 	teamtiles: {},
-	portals: {}
+	portals: {},
+	powerups: {}
+};
+
+let effectSprites = {
+	splats: {}
 };
 
 // Initialize Matter.js Engine
@@ -83,9 +93,13 @@ function preload(){
 
 	// Load sprite images
 	scene.load.spritesheet("tiles", "/assets/tiles.png", {frameWidth: 40, frameHeight: 40});
-	scene.load.spritesheet("boost", "/assets/boost.png", {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("neutralboost", "/assets/boost.png", {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("redboost", "/assets/redboost.png", {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("blueboost", "/assets/blueboost.png", {frameWidth: 40, frameHeight: 40});
 	scene.load.spritesheet("portal", "/assets/portal.png", {frameWidth: 40, frameHeight: 40});
-	scene.load.image("wall", "/assets/wall.png");
+	scene.load.spritesheet("powerups", "/assets/powerups.png", {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("splats", "/assets/splats.png", {frameWidth: 120, frameHeight: 120});
+	scene.load.spritesheet("walls", "/assets/walls.png", {frameWidth: 40, frameHeight: 40});
 }
 
 function create(){
@@ -113,8 +127,22 @@ function create(){
 
 	// Create boost animation
 	scene.anims.create({
-		key: 'boost_on',
-		frames: scene.anims.generateFrameNumbers('boost', {start: 0, end: 3}),
+		key: 'neutralboost_on',
+		frames: scene.anims.generateFrameNumbers('neutralboost', {start: 0, end: 3}),
+		frameRate: 10,
+		repeat: -1
+	});
+
+	scene.anims.create({
+		key: 'redboost_on',
+		frames: scene.anims.generateFrameNumbers('redboost', {start: 0, end: 3}),
+		frameRate: 10,
+		repeat: -1
+	});
+
+	scene.anims.create({
+		key: 'blueboost_on',
+		frames: scene.anims.generateFrameNumbers('blueboost', {start: 0, end: 3}),
 		frameRate: 10,
 		repeat: -1
 	});
@@ -140,6 +168,11 @@ function create(){
 			return acc;
 		}, {});
 
+		POWERUP_TO_NAME = Object.keys(SETTINGS.POWERUPS).reduce((acc, val) => {
+			acc[SETTINGS.POWERUPS[val]] = val;
+			return acc;
+		}, {});
+
 		// Go through the 2d tile array to build the map
 		map.mapData.tiles.forEach((tileRow, y) => {
 			tileRow.forEach((tileID, x) => {
@@ -148,7 +181,7 @@ function create(){
 				let xPos = (x * SETTINGS.tileSize) + (SETTINGS.tileSize / 2);
 				let yPos = (y * SETTINGS.tileSize) + (SETTINGS.tileSize / 2);
 
-				if(tileID === SETTINGS.TILE_IDS.FLOOR || tileID === SETTINGS.TILE_IDS.REDSPAWN || tileID === SETTINGS.TILE_IDS.BLUESPAWN){
+				if(tileID !== SETTINGS.TILE_IDS.BACKGROUND){
 					sprite = scene.add.image(xPos, yPos, "tiles");
 					sprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
 
@@ -167,50 +200,45 @@ function create(){
 			// console.log(element);
 
 			if(element.type === "Wall"){
-				mapSprites.walls[element.id] = scene.add.image(xPos, yPos, "wall")
-			} else if(element.type === "Flag"){
-				let floorSprite = scene.add.image(xPos, yPos, "tiles");
-				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
+				mapSprites.walls[element.id] = scene.add.image(xPos, yPos, "walls");
 
+				if(element.wallType === "full") {
+					mapSprites.walls[element.id].setFrame(4);
+				} else if(element.wallType === "tl") {
+					mapSprites.walls[element.id].setFrame(2);
+					mapSprites.walls[element.id].x += 7;
+					mapSprites.walls[element.id].y += 7;
+				} else if(element.wallType === "tr") {
+					mapSprites.walls[element.id].setFrame(0);
+					mapSprites.walls[element.id].x -= 7;
+					mapSprites.walls[element.id].y += 7;
+				} else if(element.wallType === "bl") {
+					mapSprites.walls[element.id].setFrame(3);
+					mapSprites.walls[element.id].x += 7;
+					mapSprites.walls[element.id].y -= 7;
+				} else if(element.wallType === "br") {
+					mapSprites.walls[element.id].setFrame(1);
+					mapSprites.walls[element.id].x -= 7;
+					mapSprites.walls[element.id].y -= 7;
+				}
+			} else if(element.type === "Flag"){
 				let flagSprite = scene.add.image(xPos, yPos, "tiles");
 				flagSprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.team] + "FLAG"]);
-
-				mapSprites.floors.push(floorSprite);
 				mapSprites.flags[element.id] = flagSprite;
 			} else if(element.type === "Spike"){
-				let floorSprite = scene.add.image(xPos, yPos, "tiles");
-				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
-
 				let spikeSprite = scene.add.image(xPos, yPos, "tiles");
 				spikeSprite.setFrame(CLIENT_SETTINGS.FRAMES.SPIKE);
-
-				mapSprites.floors.push(floorSprite);
 				mapSprites.spikes[element.id] = spikeSprite;
 			} else if(element.type === "Boost"){
-				let floorSprite = scene.add.image(xPos, yPos, "tiles");
-				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
-
-				let boostSprite = scene.add.sprite(xPos, yPos, "boost", 0);
-
-				mapSprites.floors.push(floorSprite);
+				let boostSprite = scene.add.sprite(xPos, yPos, "neutralboost", 0);
 				mapSprites.boosts[element.id] = boostSprite;
 			} else if(element.type === "Bomb"){
-				let floorSprite = scene.add.image(xPos, yPos, "tiles");
-				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
-
 				let bombSprite = scene.add.sprite(xPos, yPos, "tiles");
 				bombSprite.setFrame(CLIENT_SETTINGS.FRAMES.BOMB_ON);
-
-				mapSprites.floors.push(floorSprite);
 				mapSprites.bombs[element.id] = bombSprite;
 			} else if(element.type === "Button"){
-				let floorSprite = scene.add.image(xPos, yPos, "tiles");
-				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
-
 				let buttonSprite = scene.add.sprite(xPos, yPos, "tiles");
 				buttonSprite.setFrame(CLIENT_SETTINGS.FRAMES.BUTTON);
-
-				mapSprites.floors.push(floorSprite);
 				mapSprites.buttons[element.id] = buttonSprite;
 			} else if(element.type === "Gate"){
 				let gateSprite = scene.add.image(xPos, yPos, "tiles");
@@ -222,13 +250,12 @@ function create(){
 				teamtileSprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.team] + "TEAMTILE"]);
 				mapSprites.teamtiles[element.id] = teamtileSprite;
 			} else if(element.type === "Portal"){
-				let floorSprite = scene.add.image(xPos, yPos, "tiles");
-				floorSprite.setFrame(CLIENT_SETTINGS.FRAMES.FLOOR);
-
 				let portalSprite = scene.add.sprite(xPos, yPos, "portal", 0);
-
-				mapSprites.floors.push(floorSprite);
 				mapSprites.portals[element.id] = portalSprite;
+			} else if(element.type === "Powerup"){
+				let powerupSprite = scene.add.sprite(xPos, yPos, "tiles", 0);
+				powerupSprite.setFrame(CLIENT_SETTINGS.FRAMES.POWERUP_OFF);
+				mapSprites.powerups[element.id] = powerupSprite;
 			}
 		});
 		
@@ -268,6 +295,15 @@ function update(){
 			playerSprites[playerID].flagSprite.x = playerSprites[playerID].x + (SETTINGS.tileSize / 2.5);
 			playerSprites[playerID].flagSprite.y = playerSprites[playerID].y - (SETTINGS.tileSize / 2.5);
 
+			// Set Powerup Positions
+			Object.keys(playerSprites[playerID].powerupSprites).forEach(key => {
+				playerSprites[playerID].powerupSprites[key].setPosition(playerSprites[playerID].x, playerSprites[playerID].y);
+			});
+
+			Object.keys(playerData.powerups).forEach(key => {
+				playerSprites[playerID].powerupSprites[POWERUP_TO_NAME[key].toLowerCase()].setVisible(playerData.powerups[key] && !playerData.dead);
+			});
+
 			// Set Ball Rotation
 			playerSprites[playerID].setRotation(playerSprites[playerID].spriteBody.angle);
 
@@ -293,7 +329,7 @@ function update(){
 
 function socketHandler(){
 	socket.on("world data", data => {
-		gameData = data;
+		gameData = msgpack.deserialize(data);
 
 		// Iterate through the player data's and update the cleint side prediction bodies.
 		Object.keys(gameData.players).forEach(playerID => {
@@ -315,10 +351,10 @@ function socketHandler(){
 			} else if(element.type === "Boost") {
 				// Play Boost Animation if its on
 				if(element.isOn) {
-					mapSprites.boosts[element.id].anims.play("boost_on", true);
+					mapSprites.boosts[element.id].anims.play(TEAM_TO_NAME[element.team].toLowerCase() + "boost_on", true);
 				} else {
 					// Stop the animation if the boost is off
-					mapSprites.boosts[element.id].anims.stop("boost_on");
+					mapSprites.boosts[element.id].anims.stop(TEAM_TO_NAME[element.team].toLowerCase() + "boost_on");
 					mapSprites.boosts[element.id].setFrame(4);
 				}
 			} else if(element.type === "Bomb") {
@@ -338,14 +374,28 @@ function socketHandler(){
 					mapSprites.portals[element.id].anims.stop("portal_on");
 					mapSprites.portals[element.id].setFrame(4);
 				}
+			} else if(element.type === "Powerup") {
+				if(element.isOn) {
+					mapSprites.powerups[element.id].setFrame(CLIENT_SETTINGS.FRAMES["POWERUP_" + POWERUP_TO_NAME[element.powerupType]]);
+				} else {
+					mapSprites.powerups[element.id].setFrame(CLIENT_SETTINGS.FRAMES.POWERUP_OFF);
+				}
 			}
 		});
 
+		// Update game events
 		gameData.events.forEach(event => {
-			if(event.type === SETTINGS.EVENTS.PLAYER_LEFT){
-				let removedPlayerID = event.data;
+			let eventType = event[0];
+			let eventData = event[1];
+
+			if(eventType === SETTINGS.EVENTS.PLAYER_LEFT){
+				let removedPlayerID = eventData;
 
 				removePlayerSprite(removedPlayerID);
+			} else if(eventType === SETTINGS.EVENTS.PLAYER_POPPED){
+				let poppedPlayerID = eventData;
+
+				effectSprites.splats[poppedPlayerID] = scene.add.image(playerSprites[poppedPlayerID].x, playerSprites[poppedPlayerID].y, "splats", gameData.players[poppedPlayerID].team === SETTINGS.TEAM.RED ? getRandomInt(0, 7) : getRandomInt(7, 13));
 			}
 		});
 	});
@@ -368,6 +418,19 @@ function createPlayerSprite(playerData){
 	sprite.flagSprite.setFrame(CLIENT_SETTINGS.FRAMES.REDFLAG);
 	sprite.flagSprite.setVisible(false);
 
+	sprite.powerupSprites = {};
+	sprite.powerupSprites.forcefield = scene.add.sprite(0, 0, "powerups");
+	sprite.powerupSprites.forcefield.setFrame(0);
+	sprite.powerupSprites.forcefield.setVisible(false);
+
+	sprite.powerupSprites.rolling_bomb = scene.add.sprite(0, 0, "powerups");
+	sprite.powerupSprites.rolling_bomb.setFrame(1);
+	sprite.powerupSprites.rolling_bomb.setVisible(false);
+
+	sprite.powerupSprites.grip = scene.add.sprite(0, 0, "powerups");
+	sprite.powerupSprites.grip.setFrame(2);
+	sprite.powerupSprites.grip.setVisible(false);
+
 	if(playerData.id === clientPlayerID){
 		scene.cameras.main.startFollow(sprite);
 	}
@@ -381,10 +444,17 @@ function removePlayerSprite(playerID){
 
 	// Destroy all child sprites
 	playerSprites[playerID].flagSprite.destroy();
+	playerSprites[playerID].powerupSprite.destroy();
 	playerSprites[playerID].destroy();
 
 	// Delete sprite from playerSprites
 	delete playerSprites[playerID];
 
 	return playerID;
+}
+
+function getRandomInt(min, max) {
+	min = Math.ceil(min);
+	max = Math.floor(max);
+	return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
 }

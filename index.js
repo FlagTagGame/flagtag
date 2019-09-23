@@ -10,6 +10,8 @@ const Game = require('./components/Game');
 
 // Classic Map
 const classicMapJSON = require('./maps/Classic.json');
+// EMERALD
+const EMERALDJSON = require('./maps/EMERALD.json');
 
 const PORT = process.env.PORT || 8080;
 const isDev = process.env.PORT ? false : true;
@@ -18,13 +20,18 @@ const isDev = process.env.PORT ? false : true;
 const httpServer = http.Server(app);
 
 // Initalize the socket.io server
-const io = socketIO.listen(httpServer);
+const io = socketIO(httpServer, {
+	perMessageDeflate: {
+		threshold: 32768,
+		serverNoContextTakeover: false /* Enables sliding window during zlib compression */
+	}
+});
 
 let ioGame = io.of("/game");
 
 // Create the main game instance
 // An array of games will be used instead later.
-let mainGame = new Game({mapData: classicMapJSON, io: ioGame});
+let mainGame = new Game({mapData: EMERALDJSON, io: ioGame});
 
 // If in development mode then use the source js
 if(isDev) {

@@ -11,6 +11,12 @@ class Player {
 		this.isPortaling = false;
 		this.onTeamtile = false;
 
+		this.powerups = {
+			1: 0,
+			2: 0,
+			3: 0
+		};
+
 		this.body = body;
 		this.socket = socket;
 		this.game = game;
@@ -56,7 +62,8 @@ class Player {
 			rotation: this.body.angle,
 			team: this.team,
 			hasFlag: this.hasFlag,
-			dead: this.dead
+			dead: this.dead,
+			powerups: this.powerups
 		};
 	}
 }
