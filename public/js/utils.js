@@ -1,0 +1,1 @@
+const API_URL = location.hostname === "parretlabs.xyz" ? (a => "/flagtag/" + a) : (a => "/" + a);
