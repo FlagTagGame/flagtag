@@ -521,10 +521,6 @@ type-is@~1.6.17, type-is@~1.6.18:
     media-typer "0.3.0"
     mime-types "~2.1.24"
 
-uWebSockets.js@uNetworking/uWebSockets.js#v15.11.0:
-  version "15.11.0"
-  resolved "https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/e7552889a50a7ffa654c41c99a9bad46dd0024c5"
-
 unpipe@1.0.0, unpipe@~1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/unpipe/-/unpipe-1.0.0.tgz#b2bf4ee8514aae6165b4817829d21b2ef49904ec"
@@ -532,10 +528,6 @@ unpipe@1.0.0, unpipe@~1.0.0:
 utils-merge@1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/utils-merge/-/utils-merge-1.0.1.tgz#9f95710f50a267947b2ccc124741c1028427e713"
-
-uws@mmdevries/uws#2.3.1:
-  version "2.3.1"
-  resolved "https://codeload.github.com/mmdevries/uws/tar.gz/1a36a84ea3b3856d7f2487265a397fea1a52785a"
 
 vary@~1.1.2:
   version "1.1.2"
