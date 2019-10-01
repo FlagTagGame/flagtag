@@ -425,7 +425,6 @@ class Game {
 	 * @return {Boolean} 
 	 */
 	endGame(){
-		this.started = false;
 		this.ended = true;
 
 		this.gameEndsAt = Date.now() + 10;
@@ -588,6 +587,13 @@ class Game {
 		this.events.push([SETTINGS.EVENTS.PLAYER_LEFT, player.id]);
 
 		delete this.players[player.id];
+
+		if(Object.keys(this.players).length === 0) {
+			this.endGame();
+			setTimeout(() => {
+				this.stopGame();
+			}, 0);
+		}
 
 		return true;
 	}

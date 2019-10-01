@@ -10,7 +10,11 @@ $("#createGame").click(function(e){
 	socket.emit("create game", $("#gameNameText").val(), gameID => {
 		$("#gameNameText").val("");
 
-		location.href = "/game?g=" + gameID;
+		if(gameID) {
+			location.href = "/game?g=" + gameID;
+		} else {
+			alert("Error");
+		}
 	});
 });
 

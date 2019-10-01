@@ -57,6 +57,8 @@ ioHome.on('connection', socket => {
 	socket.on('create game', (gameName, callback) => {
 		// Check if game name and a callback has been provided
 		if(typeof gameName === "string" && typeof callback === "function") {
+			if(games.length > 4) return callback(false);
+			
 			let game = new Game({name: gameName || "Some Game " + (games.length + 1), mapData: EMERALDJSON, io: ioGame});
 
 			games.push(game);

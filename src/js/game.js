@@ -92,6 +92,21 @@ let SOUNDS = {
 	}),
 	BUTTON_ON: new Howl({
 		src: [API_URL('assets/sounds/button_on.mp3')]
+	}),
+	ALERT: new Howl({
+		src: [API_URL('assets/sounds/alert.mp3')]
+	}),
+	DROP: new Howl({
+		src: [API_URL('assets/sounds/drop.mp3')]
+	}),
+	FRIENDLY_GRAB: new Howl({
+		src: [API_URL('assets/sounds/friendlygrab.mp3')]
+	}),
+	WIN: new Howl({
+		src: [API_URL('assets/sounds/win.mp3')]
+	}),
+	LOSE: new Howl({
+		src: [API_URL('assets/sounds/lose.mp3')]
 	})
 };
 
@@ -473,6 +488,20 @@ function socketHandler(){
 
 			if(element.type === "Flag") {
 				mapSprites.flags[element.id].setAlpha(element.taken ? 0.4 : 1);
+
+				if(oldGameData.elements[idx]){
+					if(oldGameData.elements[idx].taken !== gameData.elements[idx].taken) {
+						if(gameData.elements[idx].taken){
+							if(gameData.players[clientPlayerID].t === gameData.elements[idx].team){
+								playSound("ALERT");
+							} else {
+								playSound("FRIENDLY_GRAB");
+							}
+						} else {
+							playSound("DROP");
+						}
+					}
+				}
 			} else if(element.type === "Boost") {
 				// Play Boost Animation if its on
 				if(element.isOn) {
@@ -535,6 +564,23 @@ function socketHandler(){
 				}
 			}
 		});
+
+		// when clients team score is bigger than old score, play correct sound
+		if(gameData.gameState.score.red > oldGameData.gameState.score.red) {
+			if(gameData.players[clientPlayerID].t === SETTINGS.TEAM.RED) {
+				playSound("WIN");
+			} else {
+				playSound("LOSE");
+			}
+		}
+
+		if(gameData.gameState.score.blue > oldGameData.gameState.score.blue) {
+			if(gameData.players[clientPlayerID].t === SETTINGS.TEAM.BLUE) {
+				playSound("WIN");
+			} else {
+				playSound("LOSE");
+			}
+		}
 
 		// Update game events
 		gameData.events.forEach(event => {
