@@ -1,0 +1,12 @@
+.warner {
+	margin-bottom: 0.5rem;
+}
+
+#gamesList tbody tr:hover {
+	cursor: pointer;
+	background-color: #696969;
+}
+
+.home.container .main.col {
+	
+}

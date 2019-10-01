@@ -1,7 +1,8 @@
 let config = {
 	type: Phaser.AUTO,
-	width: 960,
-	height: 540,
+	width: 1280,
+	height: 800,
+	resolution: 2,
 	scene: {
 		preload: preload,
 		create: create,
@@ -29,14 +30,23 @@ let controls;
 
 // Stores game data acquired from server
 let gameData = {};
+let gameState = {};
+let oldGameData = {};
+
 // Player's Sprites
 let playerSprites = {};
+
+let timeText;
+let redScoreText;
+let blueScoreText;
 
 // Shared Server and Client Settings, is set when player joins game.
 let SETTINGS = {};
 
 let TEAM_TO_NAME = {};
 let POWERUP_TO_NAME = {};
+
+let playerSettings = JSON.parse(localStorage.getItem("settings"));
 
 let CLIENT_SETTINGS = {
 	FRAMES: {
@@ -59,10 +69,35 @@ let CLIENT_SETTINGS = {
 		BLUETEAMTILE: 95,
 		POWERUP_OFF: 140,
 		POWERUP_FORCEFIELD: 108,
-		POWERUP_ROLLING_BOMB: 92,
-		POWERUP_GRIP: 76
+		POWERUP_CONTACT_BOMB: 92,
+		POWERUP_ENERGIZER: 76
 	}
 };
+
+let SOUNDS = {
+	BOOST: new Howl({
+		src: [API_URL('assets/sounds/boost.mp3')]
+	}),
+	BOMB: new Howl({
+		src: [API_URL('assets/sounds/bomb.mp3')]
+	}),
+	POWERUP: new Howl({
+		src: [API_URL('assets/sounds/powerup.wav')]
+	}),
+	POP: new Howl({
+		src: [API_URL('assets/sounds/pop.mp3')]
+	}),
+	BUTTON_OFF: new Howl({
+		src: [API_URL('assets/sounds/button_off.mp3')]
+	}),
+	BUTTON_ON: new Howl({
+		src: [API_URL('assets/sounds/button_on.mp3')]
+	})
+};
+
+let playSound = sound => {
+	if(!SOUNDS[sound].playing()) SOUNDS[sound].play();
+}
 
 let mapSprites = {
 	floors: [],
@@ -92,14 +127,14 @@ function preload(){
 	scene = this;
 
 	// Load sprite images
-	scene.load.spritesheet("tiles", "/assets/tiles.png", {frameWidth: 40, frameHeight: 40});
-	scene.load.spritesheet("neutralboost", "/assets/boost.png", {frameWidth: 40, frameHeight: 40});
-	scene.load.spritesheet("redboost", "/assets/redboost.png", {frameWidth: 40, frameHeight: 40});
-	scene.load.spritesheet("blueboost", "/assets/blueboost.png", {frameWidth: 40, frameHeight: 40});
-	scene.load.spritesheet("portal", "/assets/portal.png", {frameWidth: 40, frameHeight: 40});
-	scene.load.spritesheet("powerups", "/assets/powerups.png", {frameWidth: 40, frameHeight: 40});
-	scene.load.spritesheet("splats", "/assets/splats.png", {frameWidth: 120, frameHeight: 120});
-	scene.load.spritesheet("walls", "/assets/walls.png", {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("tiles", API_URL("assets/tiles.png"), {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("neutralboost", API_URL("assets/boost.png"), {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("redboost", API_URL("assets/redboost.png"), {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("blueboost", API_URL("assets/blueboost.png"), {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("portal", API_URL("assets/portal.png"), {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("powerups", API_URL("assets/powerups.png"), {frameWidth: 40, frameHeight: 40});
+	scene.load.spritesheet("splats", API_URL("assets/splats.png"), {frameWidth: 120, frameHeight: 120});
+	scene.load.spritesheet("walls", API_URL("assets/walls.png"), {frameWidth: 40, frameHeight: 40});
 }
 
 function create(){
@@ -154,14 +189,64 @@ function create(){
 		repeat: -1
 	});
 
+	timeText = scene.add.text(scene.cameras.main.displayWidth / 2, scene.cameras.main.displayHeight * 0.9, "00:00", {
+		fontFamily: "Lato",
+		fontSize: "40px",
+		fontStyle: "bold",
+		fill: "#EEEEEE",
+		stroke: "#111111",
+		strokeThickness: 8
+	});
+
+	redScoreText = scene.add.text((scene.cameras.main.displayWidth / 2) - timeText.width, scene.cameras.main.displayHeight * 0.9, "0", {
+		fontFamily: "Lato",
+		fontSize: "40px",
+		fontStyle: "bold",
+		fill: "#FF0000",
+		stroke: "#111111",
+		strokeThickness: 8
+	});
+
+	blueScoreText = scene.add.text((scene.cameras.main.displayWidth / 2) + timeText.width, scene.cameras.main.displayHeight * 0.9, "0", {
+		fontFamily: "Lato",
+		fontSize: "40px",
+		fontStyle: "bold",
+		fill: "#0065FF",
+		stroke: "#111111",
+		strokeThickness: 8
+	});
+
+	timeText.x -= timeText.width / 2;
+	redScoreText.x -= redScoreText.width / 2;
+	blueScoreText.x -= blueScoreText.width / 2;
+
+	timeText.setScrollFactor(0);
+	timeText.setAlpha(0.8);
+
+	redScoreText.setScrollFactor(0);
+	redScoreText.setAlpha(0.8);
+
+	blueScoreText.setScrollFactor(0);
+	blueScoreText.setAlpha(0.8);
+
 	// Join a Game
 	// Callback is called on success
-	socket.emit("join game", (newPlayerID, map, newSETTINGS) => {
+	socket.emit("join game", {
+		gameID: getUrlVars()["g"],
+		playerSettings: {
+			name: playerSettings.name
+		}
+	}, starterData => {
+		if(!starterData) location.href = API_URL("");
 		// Store Shared Settings
-		SETTINGS = newSETTINGS;
+		SETTINGS = starterData.SETTINGS;
 		// Store Client's player ID
-		clientPlayerID = newPlayerID;
+		clientPlayerID = starterData.playerID;
 
+		gameState = starterData.gameData.gameState;
+
+		gameData = starterData.gameData;
+		oldGameData = gameData;
 		// For converting Team ID into the team name
 		TEAM_TO_NAME = Object.keys(SETTINGS.TEAM).reduce((acc, val) => {
 			acc[SETTINGS.TEAM[val]] = val;
@@ -174,7 +259,7 @@ function create(){
 		}, {});
 
 		// Go through the 2d tile array to build the map
-		map.mapData.tiles.forEach((tileRow, y) => {
+		starterData.map.mapData.tiles.forEach((tileRow, y) => {
 			tileRow.forEach((tileID, x) => {
 				let sprite = null;
 
@@ -191,7 +276,7 @@ function create(){
 		});
 
 		// Go through each map element to build the rest of the map.
-		map.elements.forEach(element => {
+		starterData.map.elements.forEach(element => {
 			let sprite = null;
 
 			let xPos = element.x;
@@ -265,8 +350,18 @@ function create(){
 }
 
 function update(){
+	if(gameState.ended) return;
 	// Check if the clients sprite exists.
 	if(playerSprites[clientPlayerID]){
+		scene.children.bringToTop(timeText);
+		scene.children.bringToTop(redScoreText);
+		scene.children.bringToTop(blueScoreText);
+
+		timeText.setText(secondsToMMSS((gameState.gameEndsAt - Date.now()) / 1000));
+
+		redScoreText.setText(gameState.score.red);
+		blueScoreText.setText(gameState.score.blue);
+
 		// Refer to "input" key in settings.js
 		let inputObj = {
 			up: controls.up.isDown || controls.up2.isDown,
@@ -290,28 +385,35 @@ function update(){
 
 			// Hide the player if they're dead
 			playerSprites[playerID].setVisible(!playerData.dead);
+			playerSprites[playerID].usernameText.setVisible(!playerData.dead);
 
 			// Set Flag Position
-			playerSprites[playerID].flagSprite.x = playerSprites[playerID].x + (SETTINGS.tileSize / 2.5);
-			playerSprites[playerID].flagSprite.y = playerSprites[playerID].y - (SETTINGS.tileSize / 2.5);
+			playerSprites[playerID].flagSprite.x = playerSprites[playerID].x + (SETTINGS.BALL.SIZE / 2.5);
+			playerSprites[playerID].flagSprite.y = playerSprites[playerID].y - (SETTINGS.BALL.SIZE * 1.5);
+
+			// Set Username Position
+			playerSprites[playerID].usernameText.x = playerSprites[playerID].x + (SETTINGS.BALL.SIZE / 2);
+			playerSprites[playerID].usernameText.y = playerSprites[playerID].y - (SETTINGS.BALL.SIZE * 1.5);
 
 			// Set Powerup Positions
 			Object.keys(playerSprites[playerID].powerupSprites).forEach(key => {
 				playerSprites[playerID].powerupSprites[key].setPosition(playerSprites[playerID].x, playerSprites[playerID].y);
 			});
 
-			Object.keys(playerData.powerups).forEach(key => {
-				playerSprites[playerID].powerupSprites[POWERUP_TO_NAME[key].toLowerCase()].setVisible(playerData.powerups[key] && !playerData.dead);
+			playerData.pups.split("").forEach((data, idx) => {
+				let isOn = data === "1" ? true : false;
+				// console.log(playerData.pups, POWERUP_TO_NAME[idx+1], idx, playerSprites[playerID].powerupSprites);
+				playerSprites[playerID].powerupSprites[POWERUP_TO_NAME[idx+1].toLowerCase()].setVisible(isOn && !playerData.dead);
 			});
 
 			// Set Ball Rotation
 			playerSprites[playerID].setRotation(playerSprites[playerID].spriteBody.angle);
 
 			// Show the flag is the player has it
-			if(playerData.hasFlag) {
+			if(playerData.hF) {
 				// Set Frame to flag frame of players team
 				playerSprites[playerID].flagSprite.setFrame(
-					CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[playerData.team === SETTINGS.TEAM.RED ? SETTINGS.TEAM.BLUE : SETTINGS.TEAM.RED] + "FLAG"]
+					CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[playerData.t === SETTINGS.TEAM.RED ? SETTINGS.TEAM.BLUE : SETTINGS.TEAM.RED] + "FLAG"]
 				);
 				playerSprites[playerID].flagSprite.setVisible(true);
 			} else {
@@ -328,24 +430,47 @@ function update(){
 }
 
 function socketHandler(){
-	socket.on("world data", data => {
-		gameData = msgpack.deserialize(data);
+	socket.on("stopped game", () => {
+		location.href = API_URL("");
+	});
 
-		// Iterate through the player data's and update the cleint side prediction bodies.
+	socket.on("world data", data => {
+		let partialGameData = msgpack.deserialize(data);
+		// console.log(partialGameData.players, partialGameData.elements);
+		gameData = {
+			...partialGameData,
+			players: _.merge(gameData.players, partialGameData.players),
+			elements: gameData.elements.map((elem, idx) => {
+				let foundElem = elem;
+				for (let i = partialGameData.elements.length - 1; i >= 0; i--) {
+					if(partialGameData.elements[i].id === elem.id) {
+						foundElem = partialGameData.elements[i];
+						break;
+					}
+				}
+				return foundElem;
+			})
+		}
+		
+		gameState = gameData.gameState;
+
+		// Iterate through the player data's and update the client side prediction bodies.
 		Object.keys(gameData.players).forEach(playerID => {
 			let playerData = gameData.players[playerID];
 
 			if(playerSprites[playerID]) {
 				Body.setPosition(playerSprites[playerID].spriteBody, {x: playerData.x, y: playerData.y});
-				Body.setVelocity(playerSprites[playerID].spriteBody, {x: playerData.xVelocity * 0.6, y: playerData.yVelocity * 0.6});
-				Body.setAngle(playerSprites[playerID].spriteBody, playerData.rotation);
+				Body.setVelocity(playerSprites[playerID].spriteBody, {x: playerData.xV * 0.6, y: playerData.yV * 0.6});
+				Body.setAngle(playerSprites[playerID].spriteBody, playerData.r);
 			} else {
 				playerSprites[playerID] = createPlayerSprite(playerData);
 			}
 		});
 
 		// Update the game elements.
-		gameData.elements.forEach(element => {
+		gameData.elements.forEach((element, idx) => {
+			if(!pointIsInViewport(gameData.elements[idx])) return;
+
 			if(element.type === "Flag") {
 				mapSprites.flags[element.id].setAlpha(element.taken ? 0.4 : 1);
 			} else if(element.type === "Boost") {
@@ -357,11 +482,33 @@ function socketHandler(){
 					mapSprites.boosts[element.id].anims.stop(TEAM_TO_NAME[element.team].toLowerCase() + "boost_on");
 					mapSprites.boosts[element.id].setFrame(4);
 				}
+
+				if(oldGameData.elements[idx]){
+					if(oldGameData.elements[idx].isOn !== gameData.elements[idx].isOn && !gameData.elements[idx].isOn) {
+						playSound("BOOST");
+					}
+				}
 			} else if(element.type === "Bomb") {
 				if(element.isOn) {
 					mapSprites.bombs[element.id].setFrame(CLIENT_SETTINGS.FRAMES.BOMB_ON);
 				} else {
 					mapSprites.bombs[element.id].setFrame(CLIENT_SETTINGS.FRAMES.BOMB_OFF);
+				}
+
+				if(oldGameData.elements[idx]){
+					if(oldGameData.elements[idx].isOn !== gameData.elements[idx].isOn && !gameData.elements[idx].isOn) {
+						playSound("BOMB");
+					}
+				}
+			} else if(element.type === "Button") {
+				if(oldGameData.elements[idx]){
+					if(oldGameData.elements[idx].isOn !== gameData.elements[idx].isOn) {
+						if(gameData.elements[idx].isOn){
+							playSound("BUTTON_ON");
+						} else {
+							playSound("BUTTON_OFF");
+						}
+					}
 				}
 			} else if(element.type === "Gate") {
 				mapSprites.gates[element.id].setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[element.state] + "GATE"]);
@@ -380,6 +527,12 @@ function socketHandler(){
 				} else {
 					mapSprites.powerups[element.id].setFrame(CLIENT_SETTINGS.FRAMES.POWERUP_OFF);
 				}
+
+				if(oldGameData.elements[idx]){
+					if(oldGameData.elements[idx].isOn !== gameData.elements[idx].isOn && !gameData.elements[idx].isOn) {
+						playSound("POWERUP");
+					}
+				}
 			}
 		});
 
@@ -395,15 +548,18 @@ function socketHandler(){
 			} else if(eventType === SETTINGS.EVENTS.PLAYER_POPPED){
 				let poppedPlayerID = eventData;
 
-				effectSprites.splats[poppedPlayerID] = scene.add.image(playerSprites[poppedPlayerID].x, playerSprites[poppedPlayerID].y, "splats", gameData.players[poppedPlayerID].team === SETTINGS.TEAM.RED ? getRandomInt(0, 7) : getRandomInt(7, 13));
+				if(pointIsInViewport(playerSprites[poppedPlayerID])) playSound("POP");
+				effectSprites.splats[poppedPlayerID] = scene.add.image(playerSprites[poppedPlayerID].x, playerSprites[poppedPlayerID].y, "splats", gameData.players[poppedPlayerID].t === SETTINGS.TEAM.RED ? getRandomInt(0, 7) : getRandomInt(7, 13));
 			}
 		});
+
+		oldGameData = gameData;
 	});
 }
 
 function createPlayerSprite(playerData){
 	let sprite = scene.add.sprite(0, 0, "tiles");
-	sprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[playerData.team] + "BALL"]);
+	sprite.setFrame(CLIENT_SETTINGS.FRAMES[TEAM_TO_NAME[playerData.t] + "BALL"]);
 
 	sprite.spriteBody = Bodies.circle(0, 0, SETTINGS.BALL.SIZE, {
 		friction: SETTINGS.BALL.FRICTION,
@@ -414,22 +570,25 @@ function createPlayerSprite(playerData){
 
 	World.add(engine.world, sprite.spriteBody);
 
+	sprite.usernameText = scene.add.text(0, 0, playerData.name, {
+		fontFamily: "Lato",
+		fontSize: "14px",
+		fill: "#EEEEEE",
+		stroke: "#111111",
+		strokeThickness: 3
+	});
+
 	sprite.flagSprite = scene.add.sprite(0, 0, "tiles");
 	sprite.flagSprite.setFrame(CLIENT_SETTINGS.FRAMES.REDFLAG);
 	sprite.flagSprite.setVisible(false);
 
 	sprite.powerupSprites = {};
-	sprite.powerupSprites.forcefield = scene.add.sprite(0, 0, "powerups");
-	sprite.powerupSprites.forcefield.setFrame(0);
-	sprite.powerupSprites.forcefield.setVisible(false);
 
-	sprite.powerupSprites.rolling_bomb = scene.add.sprite(0, 0, "powerups");
-	sprite.powerupSprites.rolling_bomb.setFrame(1);
-	sprite.powerupSprites.rolling_bomb.setVisible(false);
-
-	sprite.powerupSprites.grip = scene.add.sprite(0, 0, "powerups");
-	sprite.powerupSprites.grip.setFrame(2);
-	sprite.powerupSprites.grip.setVisible(false);
+	Object.keys(POWERUP_TO_NAME).forEach(key => {
+		sprite.powerupSprites[POWERUP_TO_NAME[key].toLowerCase()] = scene.add.sprite(0, 0, "powerups");
+		sprite.powerupSprites[POWERUP_TO_NAME[key].toLowerCase()].setFrame(key - 1);
+		sprite.powerupSprites[POWERUP_TO_NAME[key].toLowerCase()].setVisible(false);
+	});
 
 	if(playerData.id === clientPlayerID){
 		scene.cameras.main.startFollow(sprite);
@@ -457,4 +616,69 @@ function getRandomInt(min, max) {
 	min = Math.ceil(min);
 	max = Math.floor(max);
 	return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
+}
+
+function secondsToMMSS(timeInSeconds) {
+	let pad = function(num, size) { return ('000' + num).slice(size * -1); },
+	time = parseFloat(timeInSeconds).toFixed(3),
+	minutes = Math.floor(time / 60) % 60,
+	seconds = Math.floor(time - minutes * 60);
+
+	return pad(minutes, 2) + ':' + pad(seconds, 2);
+}
+
+function getUrlVars(){
+	let vars = [], hash;
+	let hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+
+	for(let i = 0; i < hashes.length; i++){
+		hash = hashes[i].split('=');
+		hash[1] = unescape(hash[1]);
+		vars.push(hash[0]);
+		vars[hash[0]] = hash[1];
+	}
+
+	return vars;
+}
+
+function decodeMessengerPack(data, key) {
+	return key.reduce((acc, val, idx) => {
+		acc[val] = data[idx];
+		return acc;
+	}, {});
+};
+
+function exists(...values){
+	return values.every(value => typeof value !== "undefined");
+}
+
+function pointIsInViewport(point){
+	let viewRect = new Rectangle({
+		x: scene.cameras.main.scrollX,
+		y: scene.cameras.main.scrollY,
+		w: scene.cameras.main.displayWidth,
+		h: scene.cameras.main.displayHeight
+	});
+	return checkIntersection(viewRect, new Rectangle({x: point.x, y: point.y, w: 40, h: 40}));
+}
+
+function Rectangle({x, y, w, h, label, enabled}){
+	this.x = x || 0;
+	this.y = y || 0;
+	this.w = w || 1;
+	this.h = h || 1;
+
+	this.enabled = enabled === false ? false : true;
+
+	this.label = label || "";
+
+	return this;
+}
+
+function checkIntersection(rect1, rect2){
+	if((rect1.enabled && rect2.enabled) && rect1.x < rect2.x + rect2.w && rect2.x < rect1.x + rect1.w && rect1.y < rect2.y + rect2.h){
+		return rect2.y < rect1.y + rect1.h;
+	} else {
+		return false;
+	}
 }

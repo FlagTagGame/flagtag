@@ -43,6 +43,7 @@ class Button extends GameElement {
 	}
 
 	onActivePlayerTouch(player){
+		this.isOn = true;
 		this.playersOnButton[player.id] = player;
 		// Activate all links when touched
 		this.linkedElements.forEach(element => {
@@ -52,6 +53,9 @@ class Button extends GameElement {
 
 	onEndPlayerTouch(player){
 		delete this.playersOnButton[player.id];
+
+		if(Object.keys(this.playersOnButton).length === 0) this.isOn = false;
+
 		// Deactivate all links when touched
 		this.linkedElements.forEach(element => {
 			element.deactivate(this.playersOnButton);

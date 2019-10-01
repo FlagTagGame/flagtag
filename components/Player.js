@@ -55,16 +55,30 @@ class Player {
 	sendable(){
 		return {
 			id: this.id,
-			x: this.body.position.x,
-			y: this.body.position.y,
-			xVelocity: this.body.velocity.x,
-			yVelocity: this.body.velocity.y,
-			rotation: this.body.angle,
-			team: this.team,
-			hasFlag: this.hasFlag,
+			name: this.name,
+			x: Math.floor(this.body.position.x),
+			y: Math.floor(this.body.position.y),
+			xV: this.body.velocity.x,
+			yV: this.body.velocity.y,
+			r: this.body.angle,
+			t: this.team,
+			hF: this.hasFlag,
 			dead: this.dead,
-			powerups: this.powerups
+			pups: `${this.powerups[1] ? 1 : 0}${this.powerups[2] ? 1 : 0}${this.powerups[3] ? 1 : 0}`
 		};
+		// return [
+		// 	this.id,
+		// 	this.name,
+		// 	this.body.position.x,
+		// 	this.body.position.y,
+		// 	this.body.velocity.x,
+		// 	this.body.velocity.y,
+		// 	this.body.angle,
+		// 	this.team,
+		// 	this.hasFlag,
+		// 	this.dead,
+		// 	this.powerups
+		// ];
 	}
 }
 

@@ -1,9 +1,66 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 	<head>
+		<!-- Required meta tags -->
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		
+		<!-- Bootstrap CSS -->
+		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+		<link rel="stylesheet" type="text/css" href="vendor/bootstrap.min.css">
+		<link rel="stylesheet" type="text/css" href="css/home.css">
+
 		<title>FlagTag - Home</title>
 	</head>
 	<body>
-		<h1>This is home page</h1>
+		<div class="home container">
+			<h1 class="text-center"><b>FlagTag</b></h1>
+			<hr>
+			<div class="row">
+				<div class="main col">
+					<h1 class="text-center">Games</h1>
+					<hr/>
+					<div class="input-group mb-3">
+						<input type="text" class="form-control" id="gameNameText" placeholder="Game Name" aria-describedby="createGame">
+						<div class="input-group-append">
+							<button class="btn btn-primary" type="button" id="createGame">Create Game</button>
+						</div>
+					</div>
+
+					<table class="table table-bordered table-dark" id="gamesList">
+						<thead>
+							<tr>
+								<th scope="col">Name</th>
+								<th scope="col">Players</th>
+							</tr>
+						</thead>
+						<tbody>
+							
+						</tbody>
+					</table>
+				</div>
+				<div class="main col" display>
+					<h1 class="text-center">Settings</h1>
+					<hr/>
+					<div class="input-group mb-3">
+						<div class="input-group-prepend">
+							<span class="input-group-text" id="usernameLabel">Username</span>
+						</div>
+						<input type="text" class="form-control" placeholder="Username" id="usernameText" aria-label="Username" aria-describedby="usernameLabel">
+					</div>
+					<hr>
+					<p class="warner" id="saveSettingsWarning" style="display: none">Saved!</p>
+					<button class="btn btn-primary w-100" type="button" id="saveSettings">Save Settings</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Optional JavaScript -->
+		<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+		<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+		<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+		<script type="text/javascript" src="socket.io/socket.io.js"></script>
+		<script type="text/javascript" src="js/home.js"></script>
 	</body>
 </html>

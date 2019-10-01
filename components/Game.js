@@ -25,7 +25,10 @@ const Portal = require('./elements/Portal');
 const Powerup = require('./elements/Powerup');
 
 class Game {
-	constructor({mapData, io}){
+	constructor({name, mapData, io}){
+		this.id = Utils.makeID();
+		this.name = name;
+
 		this.gameInterval = null;
 		this.socketInterval = null;
 
@@ -33,13 +36,23 @@ class Game {
 
 		this.events = [];
 
-		this.engine = Engine.create();
+		this.engine = Engine.create({
+			positionIterations: 10,
+			velocityIterations: 10,
+			constraintIterations: 5
+		});
 		this.engine.world.gravity.scale = 0;
+
+		this.started = false;
+		this.ended = false;
+		this.stopped = false;
 
 		this.score = {
 			red: 0,
 			blue: 0
 		};
+
+		this.gameEndsAt = Date.now() + (SETTINGS.GAME.GAME_COUNTDOWN_SECONDS * 1000);
 
 		// Map Properties
 		this.mapData = mapData;
@@ -173,8 +186,15 @@ class Game {
 		// Add all the elements to the world.
 		World.add(this.engine.world, this.map.map(a => a.body));
 
+		// this.map = this.map.reduce((acc, val) => {
+		// 	acc[val.id] = val;
+		// 	return acc;
+		// }, {});
+
 		// Start Game Loop
 		this.startGameInterval();
+
+		Engine.update(this.engine, 1000 / SETTINGS.tickSpeed);
 	}
 
 	/**
@@ -184,7 +204,23 @@ class Game {
 	startGameInterval(){
 		// Main Game Loop
 		// Handles the game logic
+
 		this.gameInterval = setInterval(() => {
+			if(this.gameEndsAt - Date.now() <= 0) {
+				if(this.started){
+					if(this.ended){
+						this.stopGame();
+					} else {
+						this.endGame();
+					}
+				} else {
+					this.gameEndsAt = Date.now() + (SETTINGS.GAME.GAME_LENGTH_SECONDS * 1000);
+					this.started = true;
+				}
+			}
+
+			if(!this.started) return;
+
 			let playersArr = Object.values(this.players);
 
 			playersArr.forEach(player => {
@@ -200,7 +236,7 @@ class Game {
 					// Move the player depending on the keys pressed.
 					let moveObj = {x: 0, y: 0};
 
-					let modifiedAcceleration = SETTINGS.BALL.ACCELERATION * (player.onTeamtile ? 1.5 : 1) * (player.powerups[SETTINGS.POWERUPS.GRIP_ACCELERATION_MULTIPLIER] > 0 ? 1.25 : 1);
+					let modifiedAcceleration = SETTINGS.BALL.ACCELERATION * (player.onTeamtile ? 1.5 : 1) * (player.powerups[SETTINGS.POWERUPS.ENERGIZER_ACCELERATION_MULTIPLIER] > 0 ? 1.25 : 1);
 
 					if(player.input.left) {
 						moveObj.x -= modifiedAcceleration;
@@ -237,8 +273,10 @@ class Game {
 				}
 			});
 
-			Engine.update(this.engine, 1000 / SETTINGS.tickSpeed);
+			if(this.started && !this.ended) Engine.update(this.engine, 1000 / SETTINGS.tickSpeed);
 		}, 1000 / SETTINGS.tickSpeed);
+
+		let oldData = {};
 
 		// Main Socket Loop
 		// Updates the players.
@@ -252,15 +290,36 @@ class Game {
 				return acc;
 			}, {});
 
+			let sendableMapArray = this.map.filter(a => !a.isStatic).map(a => a.sendable());
+
+			// Sending data that asn't been sent yet
+			let sendableData = {
+				players: getSlimPlayersObject(playersObject, oldData.players),
+				// Only send the non-static elements (not walls or spikes)
+				elements: oldData.elements ? sendableMapArray.filter((elem, idx) => JSON.stringify(elem) !== JSON.stringify(oldData.elements[idx])) : sendableMapArray,
+				events: this.events,
+				gameState: this.createGameState()
+			};
+
+			// Send data to each player seperately
 			playersObjectKeys.forEach(key => {
-				this.players[key].socket.emit("world data", encode({
-					players: playersObject,
-					// Only send the non-static elements (not walls or spikes)
-					elements: this.map.filter(a => !a.isStatic).map(a => a.sendable()),
-					events: this.events
-				}));
+				// let editedSendableData = {...sendableData};
+
+				// editedSendableData.players = editedSendableData.players.
+
+				this.players[key].socket.emit("world data", encode(sendableData));
 				// console.log(playersObject);
 			});
+
+			// Save old data
+			oldData = {
+				players: playersObject,
+				// Only send the non-static elements (not walls or spikes)
+				elements: sendableMapArray,
+				events: this.events,
+				gameState: this.createGameState()
+			};;
+
 			this.events = [];
 		}, 1000 / SETTINGS.socketTickSpeed);
 
@@ -282,45 +341,10 @@ class Game {
 
 					if(player1 && player2){
 						// Player vs Player should have 0 friction
-						player1.body.friction = 0;
-						player2.body.friction = 0;
+						player1.body.friction = 0.002;
+						player2.body.friction = 0.002;
 
-						// Check if they both aren't dead
-						if(!player1.dead && !player2.dead){
-							// Check if they aren't on the same team
-							if(player1.team !== player2.team){
-								
-								if(player1.powerups[SETTINGS.POWERUPS.ROLLING_BOMB] === 0){
-									if(player1.hasFlag){
-										this.respawnPlayer(player1);
-									}
-
-									if(player1.powerups[SETTINGS.POWERUPS.FORCEFIELD]) {
-										this.respawnPlayer(player2);
-									}
-								}
-
-								if(player2.powerups[SETTINGS.POWERUPS.ROLLING_BOMB] === 0){
-									if(player2.hasFlag){
-										this.respawnPlayer(player2);
-									}
-
-									if(player2.powerups[SETTINGS.POWERUPS.FORCEFIELD]) {
-										this.respawnPlayer(player1);
-									}
-								}
-
-								if(player1.powerups[SETTINGS.POWERUPS.ROLLING_BOMB]) {
-									player1.powerups[SETTINGS.POWERUPS.ROLLING_BOMB] = 0;
-									this.createExplosion({...player1.body.position}, SETTINGS.GAME.ROLLING_BOMB_RANGE, SETTINGS.GAME.ROLLING_BOMB_POWER);
-								}
-
-								if(player2.powerups[SETTINGS.POWERUPS.ROLLING_BOMB]) {
-									player2.powerups[SETTINGS.POWERUPS.ROLLING_BOMB] = 0;
-									this.createExplosion({...player2.body.position}, SETTINGS.GAME.ROLLING_BOMB_RANGE, SETTINGS.GAME.ROLLING_BOMB_POWER);
-								}
-							}
-						}
+						this.PvPHandler(player1, player2);
 					}
 				}
 
@@ -348,17 +372,7 @@ class Game {
 					let player2 = this.players[pair.bodyB.elementID];
 
 					if(player1 && player2){
-						if(!player1.dead && !player2.dead){
-							if(player1.team !== player2.team){
-								if(player1.hasFlag){
-									this.respawnPlayer(player1);
-								}
-
-								if(player2.hasFlag){
-									this.respawnPlayer(player2);
-								}
-							}
-						}
+						this.PvPHandler(player1, player2);
 					}
 				}
 
@@ -405,13 +419,91 @@ class Game {
 			});
 		});
 	}
+	
+	/**
+	 * Ends the game (keeps players in for a bit)
+	 * @return {Boolean} 
+	 */
+	endGame(){
+		this.started = false;
+		this.ended = true;
+
+		this.gameEndsAt = Date.now() + 10;
+
+		// clearInterval(this.socketInterval);
+
+		return true;
+	}
+
+	/**
+	 * Stops the game and sends stopped game event to players.
+	 * @return {Boolean}
+	 */
+	stopGame(){
+		this.stopped = true;
+
+		clearInterval(this.gameInterval);
+
+		Object.keys(this.players).forEach(key => {
+			// Party's over, go home.
+			this.players[key].socket.emit("stopped game");
+		});
+
+		return true;
+	}
+
+	/**
+	 * Handles the collisions between 2 players.
+	 * @param {Player} player1 Player Object 1
+	 * @param {Player} player2 Player Object 2
+	 */
+	PvPHandler(player1, player2){
+		// Check if they both aren't dead
+		if(!player1.dead && !player2.dead){
+			// Check if they aren't on the same team
+			if(player1.team !== player2.team){
+				
+				if(player1.powerups[SETTINGS.POWERUPS.CONTACT_BOMB] === 0){
+					if(player1.hasFlag){
+						this.respawnPlayer(player1);
+					}
+
+					if(player2.powerups[SETTINGS.POWERUPS.FORCEFIELD]) {
+						this.respawnPlayer(player1);
+					}
+				}
+
+				if(player2.powerups[SETTINGS.POWERUPS.CONTACT_BOMB] === 0){
+					if(player2.hasFlag){
+						this.respawnPlayer(player2);
+					}
+
+					if(player1.powerups[SETTINGS.POWERUPS.FORCEFIELD]) {
+						this.respawnPlayer(player2);
+					}
+				}
+
+				if(player1.powerups[SETTINGS.POWERUPS.CONTACT_BOMB]) {
+					player1.powerups[SETTINGS.POWERUPS.CONTACT_BOMB] = 0;
+					this.createExplosion({...player1.body.position}, SETTINGS.GAME.CONTACT_BOMB_RANGE, SETTINGS.GAME.CONTACT_BOMB_POWER);
+				}
+
+				if(player2.powerups[SETTINGS.POWERUPS.CONTACT_BOMB]) {
+					player2.powerups[SETTINGS.POWERUPS.CONTACT_BOMB] = 0;
+					this.createExplosion({...player2.body.position}, SETTINGS.GAME.CONTACT_BOMB_RANGE, SETTINGS.GAME.CONTACT_BOMB_POWER);
+				}
+			}
+		}
+	}
 
 	/**
 	 * Adds a player to the game using a socket.io object.
 	 * @param  {Socket} socket - Player's socket object
-	 * @return {Object} Returns data that player needs in the callback. ({player, map, SETTINGS})
+	 * @param  {Object} playerData - Contains player data like their username
+	 * @return {Object} Returns data that player needs in the callback. ({player, starterData})
 	 */
-	joinGame(socket){
+	joinGame(socket, playerData){
+		if(this.ended) return false;
 		// Create the players body
 		let body = Bodies.circle(
 			(this.mapData.tiles[0].length * SETTINGS.tileSize) / 2,
@@ -429,7 +521,7 @@ class Game {
 
 		// Create a Player instance
 		let player = new Player({
-			name: "Odd Ball",
+			name: playerData.name,
 			team: Object.keys(this.players).length % 2 === 0 ? SETTINGS.TEAM.RED : SETTINGS.TEAM.BLUE,
 			body: body,
 			game: this,
@@ -444,11 +536,44 @@ class Game {
 		// Respawn the player
 		this.respawnPlayer(player, true);
 
+		// Convert to senadable data
+		let playersObject = Object.keys(this.players).reduce((acc, val) => {
+			acc[val] = this.players[val].sendable();
+
+			return acc;
+		}, {});
+
 		// Send back data that the client needs.
-		return {player, map: {
-			elements: this.map.map(a => a.sendable()),
-			mapData: this.mapData
-		}, SETTINGS};
+		return {
+			player,
+			starterData: {
+				playerID: player.id,
+				map: {
+					elements: this.map.map(a => a.sendable()),
+					mapData: this.mapData
+				},
+				SETTINGS,
+				gameData: {
+					players: playersObject,
+					// Only send the non-static elements (not walls or spikes)
+					elements: this.map.filter(a => !a.isStatic).map(a => a.sendable()),
+					events: this.events,
+					gameState: this.createGameState()
+				}
+			}
+		};
+	}
+
+	/**
+	 * Creates the game state object
+	 * @return {Object} Game State
+	 */
+	createGameState(){
+		return {
+			ended: this.ended,
+			score: this.score,
+			gameEndsAt: this.gameEndsAt
+		}
 	}
 
 	/**
@@ -565,6 +690,18 @@ class Game {
 
 		return false;
 	}
+
+	/**
+	 * Creates a sendable game object
+	 * @return {Object} Sendable Game Object
+	 */
+	sendable(){
+		return {
+			id: this.id,
+			name: this.name,
+			players: Object.keys(this.players).length
+		}
+	}
 }
 
 /**
@@ -606,5 +743,26 @@ function getPairObject(pair, elementType){
  * @return {Number}
  */
 Math.clamp = (num, min, max) => Math.max(Math.min(num, max), min);
+
+/**
+ * Deep diff between two object, using lodash
+ * @param  {Object} object Object compared
+ * @param  {Object} base   Object to compare with
+ * @return {Object}        Return a new object who represent the diff
+ */
+function difference(object, base) {
+	function changes(object, base) {
+		return _.transform(object, function(result, value, key) {
+			if (!_.isEqual(value, base[key])) {
+				result[key] = (_.isObject(value) && _.isObject(base[key])) ? changes(value, base[key]) : value;
+			}
+		});
+	}
+	return changes(object, base);
+}
+
+function getSlimPlayersObject(newPlayers, oldPlayers){
+	return difference(newPlayers, oldPlayers);
+}
 
 module.exports = Game;

@@ -13,42 +13,37 @@ class Wall extends GameElement {
 		let xOrigin = 7;
 		let yOrigin = 7;
 
+		let wallSettings = {
+			isStatic: true,
+			friction: 0.3
+		};
+
 		if(type === "full"){
-			super(Bodies.rectangle(x, y, SETTINGS.tileSize, SETTINGS.tileSize, {
-				isStatic: true
-			}));
+			super(Bodies.rectangle(x, y, SETTINGS.tileSize, SETTINGS.tileSize, wallSettings));
 		} else if(type === "tl"){
 			super(Bodies.fromVertices(x - xOrigin, y - yOrigin, [
 				{x: 0, y: 0},
 				{x: SETTINGS.tileSize, y: 0},
 				{x: 0, y: SETTINGS.tileSize}
-			], {
-				isStatic: true
-			}));
+			], wallSettings));
 		} else if(type === "tr"){
 			super(Bodies.fromVertices(x + xOrigin, y - yOrigin, [
 				{x: SETTINGS.tileSize, y: 0},
 				{x: 0, y: 0},
 				{x: SETTINGS.tileSize, y: SETTINGS.tileSize}
-			], {
-				isStatic: true
-			}));
+			], wallSettings));
 		} else if(type === "bl"){
 			super(Bodies.fromVertices(x - xOrigin, y + yOrigin, [
 				{x: 0, y: 0},
 				{x: 0, y: SETTINGS.tileSize},
 				{x: SETTINGS.tileSize, y: SETTINGS.tileSize}
-			], {
-				isStatic: true
-			}));
+			], wallSettings));
 		} else if(type === "br"){
 			super(Bodies.fromVertices(x + xOrigin, y + yOrigin, [
 				{x: SETTINGS.tileSize, y: 0},
 				{x: SETTINGS.tileSize, y: SETTINGS.tileSize},
 				{x: 0, y: SETTINGS.tileSize}
-			], {
-				isStatic: true
-			}));
+			], wallSettings));
 		}
 
 		this.wallType = type;
