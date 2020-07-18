@@ -18,7 +18,7 @@
     "express": "^4.17.1",
     "gulp": "^4.0.2",
     "gulp-javascript-obfuscator": "^1.1.6",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "matter-js": "^0.14.2",
     "poly-decomp": "^0.3.0",
     "socket.io": "^2.2.0",
