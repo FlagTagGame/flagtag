@@ -21,7 +21,7 @@
     "lodash": "^4.17.15",
     "matter-js": "^0.14.2",
     "poly-decomp": "^0.3.0",
-    "socket.io": "^2.2.0",
+    "socket.io": "^2.4.0",
     "vinyl-sourcemaps-apply": "^0.2.1",
     "what-the-pack": "^2.0.3"
   }
