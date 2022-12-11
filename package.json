@@ -15,7 +15,7 @@
   "author": "Electro",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "gulp": "^4.0.2",
     "gulp-javascript-obfuscator": "^1.1.6",
     "lodash": "^4.17.15",
